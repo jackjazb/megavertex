@@ -3,114 +3,18 @@ use std::time::Instant;
 use image::{Pixel, Rgba};
 use minifb::{Key, Window, WindowOptions};
 
-const WIDTH: usize = 640;
-const HEIGHT: usize = 360;
+mod renderer;
+use renderer::Renderer;
 
-const BACKGROUND: u32 = 0x000000;
-const FOREGROUND: u32 = 0xffffff;
+const WIDTH: usize = 600;
+const HEIGHT: usize = 400;
 
-struct Renderer {
-    width: usize,
-    height: usize,
-    buffer: Vec<u32>,
+struct Camera {
+    position: [i32; 3], // x, y, z position of Camera in world space
 }
 
-impl Renderer {
-    pub fn new(width: usize, height: usize) -> Self {
-        Renderer {
-            width,
-            height,
-            buffer: vec![BACKGROUND; width * height],
-        }
-    }
-
-    // pub fn draw_rect(&mut self, pos: Vec2, size: Vec2) {
-    //     let start = pos.y * self.width + pos.x;
-    //     let end = (pos.y * self.width) + (size.y * self.width) + (pos.x + size.y);
-
-    //     for (i, el) in self.buffer.iter_mut().enumerate() {
-    //         if i > start && i < end {
-    //             if i % self.width > pos.x && i % self.width < pos.x + size.x {
-    //                 *el = FOREGROUND;
-    //             }
-    //         }
-    //     }
-    // }
-
-    // Draws a triangle from an array of 3 points.
-    pub fn draw_triangle(&mut self, vertices: [[i32; 2]; 3]) {
-        let mut vert_index: usize = 0;
-        while vert_index < 3 {
-            let mut next_vert_index = vert_index + 1;
-            if next_vert_index > 2 {
-                next_vert_index = 0;
-            }
-
-            // Bresenham's line algorithm - info here:
-            // https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm#Algorithm_for_integer_arithmetic
-            let v1 = vertices[vert_index];
-            let v2 = vertices[next_vert_index];
-
-            println!("drawing line {:?} to {:?}", v1, v2);
-
-            let dx = (v2[0] - v1[0]).abs();
-            let dy = -(v2[1] - v1[1]).abs();
-
-            let sx = {
-                if v1[0] < v2[0] {
-                    1
-                } else {
-                    -1
-                }
-            };
-            let sy = {
-                if v1[1] < v2[1] {
-                    1
-                } else {
-                    -1
-                }
-            };
-            let mut err = dx + dy;
-
-            let mut x = v1[0];
-            let mut y = v1[1];
-
-            loop {
-                self.draw_pixel([x, y], FOREGROUND);
-                if x == v2[0] && y == v2[1] {
-                    break;
-                }
-                let err2 = err * 2;
-                if err2 >= dy {
-                    if x == v2[0] {
-                        break;
-                    }
-                    err = err + dy;
-                    x = x + sx;
-                }
-                if err2 <= dx {
-                    if y == v2[1] {
-                        break;
-                    }
-                    err = err + dx;
-                    y = y + sy;
-                }
-            }
-            vert_index = vert_index + 1;
-        }
-    }
-
-    pub fn draw_pixel(&mut self, pos: [i32; 2], col: u32) {
-        println!("{:?}", pos);
-        let i = (self.width * pos[1] as usize) + pos[0] as usize;
-        if i < self.buffer.len() {
-            self.buffer[i] = col;
-        }
-    }
-
-    pub fn clear(&mut self) {
-        self.buffer = vec![BACKGROUND; self.width * self.height];
-    }
+impl Camera {
+    pub fn draw_object(&mut self, vertices: Vec<[i32; 3]>) {}
 }
 
 fn main() {
@@ -138,7 +42,7 @@ fn main() {
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         renderer.clear();
-        renderer.draw_triangle([[50, 100], [200, 200], [300, 300]]);
+        renderer.draw_triangle([[200, 250], [400, 250], [300, 150]]);
 
         // to draw a pixel from an image
         // buffer[i] = rgba_to_u32(img.get_pixel(x as u32, y as u32));
