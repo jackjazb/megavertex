@@ -78,6 +78,12 @@ impl Renderer {
     }
 
     pub fn draw_pixel(&mut self, pos: [i32; 2], col: u32) {
+        if pos[0] < 0 || pos[0] > self.width as i32 - 1 {
+            return;
+        }
+        if pos[1] < 0 || pos[1] > self.height as i32 - 1 {
+            return;
+        }
         let i = (self.width * pos[1] as usize) + pos[0] as usize;
         if i < self.buffer.len() {
             self.buffer[i] = col;

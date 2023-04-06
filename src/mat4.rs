@@ -9,7 +9,7 @@ use crate::Vec3;
  * Mat4::identity().translate(_).rotate(_).scale(_).transform(vector)
  *
  */
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub struct Mat4 {
     pub rows: [[f64; 4]; 4],
 }

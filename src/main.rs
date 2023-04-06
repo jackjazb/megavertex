@@ -23,6 +23,45 @@ impl Camera {
 }
 
 fn main() {
+    let cube = [
+        Vec3::new(-0.5, -0.5, -0.5),
+        Vec3::new(0.5, -0.5, -0.5),
+        Vec3::new(0.5, 0.5, -0.5),
+        Vec3::new(0.5, 0.5, -0.5),
+        Vec3::new(-0.5, 0.5, -0.5),
+        Vec3::new(-0.5, -0.5, -0.5),
+        Vec3::new(-0.5, -0.5, 0.5),
+        Vec3::new(0.5, -0.5, 0.5),
+        Vec3::new(0.5, 0.5, 0.5),
+        Vec3::new(0.5, 0.5, 0.5),
+        Vec3::new(-0.5, 0.5, 0.5),
+        Vec3::new(-0.5, -0.5, 0.5),
+        Vec3::new(-0.5, 0.5, 0.5),
+        Vec3::new(-0.5, 0.5, -0.5),
+        Vec3::new(-0.5, -0.5, -0.5),
+        Vec3::new(-0.5, -0.5, -0.5),
+        Vec3::new(-0.5, -0.5, 0.5),
+        Vec3::new(-0.5, 0.5, 0.5),
+        Vec3::new(0.5, 0.5, 0.5),
+        Vec3::new(0.5, 0.5, -0.5),
+        Vec3::new(0.5, -0.5, -0.5),
+        Vec3::new(0.5, -0.5, -0.5),
+        Vec3::new(0.5, -0.5, 0.5),
+        Vec3::new(0.5, 0.5, 0.5),
+        Vec3::new(-0.5, -0.5, -0.5),
+        Vec3::new(0.5, -0.5, -0.5),
+        Vec3::new(0.5, -0.5, 0.5),
+        Vec3::new(0.5, -0.5, 0.5),
+        Vec3::new(-0.5, -0.5, 0.5),
+        Vec3::new(-0.5, -0.5, -0.5),
+        Vec3::new(-0.5, 0.5, -0.5),
+        Vec3::new(0.5, 0.5, -0.5),
+        Vec3::new(0.5, 0.5, 0.5),
+        Vec3::new(0.5, 0.5, 0.5),
+        Vec3::new(-0.5, 0.5, 0.5),
+        Vec3::new(-0.5, 0.5, -0.5),
+    ];
+
     let mut renderer = Renderer::new(WIDTH, HEIGHT);
 
     let mut window = Window::new(
@@ -38,20 +77,28 @@ fn main() {
     // Limit to max ~60 fps update rate
     window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
 
-    let vec1 = Vec3::new(1.0, 5.0, 0.0);
-    let mut vec2 = Vec3::new(100.0, 7.0, 0.0);
-    //vec1.normalise();
-    vec2.normalise();
-    println!("{:?}", rad_to_deg(vec1.dot_product(vec2).acos()));
-
-    let test: Mat4 = Mat4::identity().rotate(Vec3::new(0.0, 1.0, 0.0), PI);
-    //.transform(Vec3::new(1.0, 1.0, 1.0));
-
-    println!("{:?}", test);
+    let mut degs = 0.0;
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         renderer.clear();
-        renderer.draw_triangle([[200, 250], [400, 250], [300, 150]]);
+
+        degs = degs + 0.05;
+        let mat = Mat4::identity()
+            .rotate(Vec3::new(0.0, 1.0, 0.0), degs)
+            .scale(100.0)
+            .translate(Vec3::new(300.0, 200.0, 0.0));
+
+        for x in (0..cube.len()).step_by(3) {
+            let a = mat.transform(cube[x]);
+            let b = mat.transform(cube[x + 1]);
+            let c = mat.transform(cube[x + 2]);
+
+            renderer.draw_triangle([
+                [a.x as i32, a.y as i32],
+                [b.x as i32, b.y as i32],
+                [c.x as i32, c.y as i32],
+            ]);
+        }
 
         // to draw a pixel from an image
         // buffer[i] = rgba_to_u32(img.get_pixel(x as u32, y as u32));
