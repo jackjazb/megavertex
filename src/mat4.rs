@@ -1,12 +1,19 @@
 use crate::Vec3;
 
+/**
+ * An implementation of a 4x4 matrix. It can be used to apply transformations to vectors.
+ *
+ * An arbitrary number of transformations can be applied fluently. For example, the following
+ * applies a scaling, rotation, and translation to a vector in that order:
+ *
+ * Mat4::identity().translate(_).rotate(_).scale(_).transform(vector)
+ *
+ */
 #[derive(Debug, PartialEq)]
 pub struct Mat4 {
     pub rows: [[f64; 4]; 4],
 }
 
-// A matrix struct, mostly for applying transformations to vectors
-// new vec3 = Mat4::new().scale(3.0).rotate(0.5pi).translate(x, y, z).transform(vec3)
 impl Mat4 {
     // Initialises a new matrix with 1.0 as its diagonals.
     pub fn identity() -> Mat4 {
@@ -21,7 +28,7 @@ impl Mat4 {
     }
 
     /**
-     * Generates a matrix with which to scale a vector
+     * Computes a matrix with which to scale a vector.
      */
     pub fn scale(self, n: f64) -> Mat4 {
         let mut res = Mat4::identity();
@@ -37,7 +44,7 @@ impl Mat4 {
     }
 
     /**
-     * Vector translation
+     * Computes a matrix with which to translate a vector.
      */
     pub fn translate(self, vec: Vec3) -> Mat4 {
         let trans_mat = Mat4 {
@@ -53,11 +60,11 @@ impl Mat4 {
     }
 
     /**
-     * Rotation matrix found at https://learnopengl.com/Getting-started/Transformations
+     * Rotation matrix found at https://en.wikipedia.org/wiki/Rotation_matrix#Rotation_matrix_from_axis_and_angle.
      *
      * One day I will understand quaternions. Today is not that day.
      */
-    pub fn rotation(self, axis: Vec3, theta: f64) -> Mat4 {
+    pub fn rotate(self, axis: Vec3, theta: f64) -> Mat4 {
         let (x, y, z) = (axis.x, axis.y, axis.z);
 
         // Computes cos(t) + p^2(1-cos(t)) - t = theta, p = point
@@ -101,7 +108,7 @@ impl Mat4 {
     }
 
     /**
-     * Multiply by another 4x4 matrix.
+     * Multiply this by another 4x4 matrix.
      */
     pub fn mult(self, mat: Mat4) -> Mat4 {
         let mut res = Mat4::identity();
@@ -154,10 +161,41 @@ mod test {
     }
 
     #[test]
+    fn multiply_matrix() {
+        let expected = Mat4 {
+            rows: [
+                [20.0, 19.0, 16.0, 10.0],
+                [24.0, 22.0, 18.0, 11.0],
+                [31.0, 28.0, 22.0, 13.0],
+                [40.0, 36.0, 28.0, 16.0],
+            ],
+        };
+
+        let mat_a = Mat4 {
+            rows: [
+                [1.0, 2.0, 3.0, 4.0],
+                [2.0, 2.0, 3.0, 4.0],
+                [3.0, 3.0, 3.0, 4.0],
+                [4.0, 4.0, 4.0, 4.0],
+            ],
+        };
+        let mat_b = Mat4 {
+            rows: [
+                [4.0, 3.0, 2.0, 1.0],
+                [3.0, 3.0, 2.0, 1.0],
+                [2.0, 2.0, 2.0, 1.0],
+                [1.0, 1.0, 1.0, 1.0],
+            ],
+        };
+
+        let result = mat_a.mult(mat_b);
+        assert_eq!(expected, result);
+    }
+
+    #[test]
     fn transform_vector() {
         let expected = Vec3::new(4.0, 5.0, 6.0);
-
-        let matrix = Mat4 {
+        let transformation_matrix = Mat4 {
             rows: [
                 [3.0, 0.0, 0.0, 1.0],
                 [0.0, 3.0, 0.0, 2.0],
@@ -165,36 +203,39 @@ mod test {
                 [0.0, 0.0, 0.0, 1.0],
             ],
         };
+        let result = transformation_matrix.transform(Vec3::new(1.0, 1.0, 1.0));
 
-        let result = matrix.transform(Vec3::new(1.0, 1.0, 1.0));
         assert_eq!(expected, result);
     }
 
     #[test]
     fn scale_vector() {
         let expected = Vec3::new(2.0, 2.0, 2.0);
+        let result = Mat4::identity()
+            .scale(2.0)
+            .transform(Vec3::new(1.0, 1.0, 1.0));
 
-        let vec = Vec3::new(1.0, 1.0, 1.0);
-        let result = Mat4::identity().scale(2.0).transform(vec);
         assert_eq!(expected, result);
     }
 
     #[test]
     fn translate_vector() {
         let expected = Vec3::new(1.0, 2.0, 3.0);
-        let vec = Vec3::new(1.0, 1.0, 1.0);
         let result = Mat4::identity()
             .translate(Vec3::new(0.0, 1.0, 2.0))
-            .transform(vec);
+            .transform(Vec3::new(1.0, 1.0, 1.0));
+
         assert_eq!(expected, result);
     }
 
     #[test]
     fn rotate_vector() {
         let expected = Vec3::new(1.0, -0.11950238978550387, 1.4091554842655063);
-        let vec = Vec3::new(1.0, 1.0, 1.0);
         let axis = Vec3::new(1.0, 0.0, 0.0);
-        let result = Mat4::identity().rotation(axis, 0.87).transform(vec);
+        let result = Mat4::identity()
+            .rotate(axis, 0.87)
+            .transform(Vec3::new(1.0, 1.0, 1.0));
+
         assert_eq!(result, expected);
     }
 

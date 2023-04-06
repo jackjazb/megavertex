@@ -48,3 +48,7 @@ impl Vec3 {
         (self.x.powf(2.0) + self.y.powf(2.0) + self.z.powf(2.0)).sqrt()
     }
 }
+
+mod test {
+    use super::*;
+}

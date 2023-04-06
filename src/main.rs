@@ -44,7 +44,7 @@ fn main() {
     vec2.normalise();
     println!("{:?}", rad_to_deg(vec1.dot_product(vec2).acos()));
 
-    let test: Mat4 = Mat4::identity().rotation(Vec3::new(0.0, 1.0, 0.0), PI);
+    let test: Mat4 = Mat4::identity().rotate(Vec3::new(0.0, 1.0, 0.0), PI);
     //.transform(Vec3::new(1.0, 1.0, 1.0));
 
     println!("{:?}", test);
