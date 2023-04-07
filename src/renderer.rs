@@ -1,3 +1,6 @@
+use crate::Mat4;
+use crate::Vec3;
+
 const BLACK: u32 = 0x000000;
 const WHITE: u32 = 0xffffff;
 
@@ -17,7 +20,7 @@ impl Renderer {
     }
 
     // Draws a triangle from an array of 3 points.
-    pub fn draw_triangle(&mut self, vertices: [[i32; 2]; 3]) {
+    pub fn draw_triangle(&mut self, vertices: Vec<Vec3>) {
         let mut vert_index: usize = 0;
         while vert_index < 3 {
             let mut next_vert_index = vert_index + 1;
@@ -25,23 +28,34 @@ impl Renderer {
                 next_vert_index = 0;
             }
 
+            let mut vec1 = vertices[vert_index];
+            let mut vec2 = vertices[next_vert_index];
+
+            // Scale the vector up to screen size and align 0 to the centre of the screen
+            vec1.scale(self.width as f64);
+            vec2.scale(self.width as f64);
+
+            let scr_centre = Vec3::new((self.width / 2) as f64, (self.height / 2) as f64, 0.0);
+            vec1.add(scr_centre);
+            vec2.add(scr_centre);
+
             // Bresenham's line algorithm - info here:
             // https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm#Algorithm_for_integer_arithmetic
-            let v1 = vertices[vert_index];
-            let v2 = vertices[next_vert_index];
+            let pix1 = [vec1.x as i32, vec1.y as i32];
+            let pix2 = [vec2.x as i32, vec2.y as i32];
 
-            let dx = (v2[0] - v1[0]).abs();
-            let dy = -(v2[1] - v1[1]).abs();
+            let dx = (pix2[0] - pix1[0]).abs();
+            let dy = -(pix2[1] - pix1[1]).abs();
 
             let sx = {
-                if v1[0] < v2[0] {
+                if pix1[0] < pix2[0] {
                     1
                 } else {
                     -1
                 }
             };
             let sy = {
-                if v1[1] < v2[1] {
+                if pix1[1] < pix2[1] {
                     1
                 } else {
                     -1
@@ -49,24 +63,24 @@ impl Renderer {
             };
             let mut err = dx + dy;
 
-            let mut x = v1[0];
-            let mut y = v1[1];
+            let mut x = pix1[0];
+            let mut y = pix1[1];
 
             loop {
                 self.draw_pixel([x, y], WHITE);
-                if x == v2[0] && y == v2[1] {
+                if x == pix2[0] && y == pix2[1] {
                     break;
                 }
                 let err2 = err * 2;
                 if err2 >= dy {
-                    if x == v2[0] {
+                    if x == pix2[0] {
                         break;
                     }
                     err = err + dy;
                     x = x + sx;
                 }
                 if err2 <= dx {
-                    if y == v2[1] {
+                    if y == pix2[1] {
                         break;
                     }
                     err = err + dx;

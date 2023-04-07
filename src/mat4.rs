@@ -1,7 +1,4 @@
-use std::{
-    fmt::{Debug, Display},
-    mem::swap,
-};
+use std::fmt::{Debug, Display};
 
 use crate::Vec3;
 
@@ -72,7 +69,8 @@ impl Mat4 {
 
     Rotation matrix found at https://en.wikipedia.org/wiki/Rotation_matrix#Rotation_matrix_from_axis_and_angle.
     */
-    pub fn rotate(self, axis: Vec3, theta: f64) -> Mat4 {
+    pub fn rotate(self, mut axis: Vec3, theta: f64) -> Mat4 {
+        axis.normalise();
         let (x, y, z) = (axis.x, axis.y, axis.z);
 
         // Computes cos(t) + p^2(1-cos(t)) - t = theta, p = point
@@ -140,8 +138,6 @@ impl Mat4 {
     pub fn inverse(mut self) -> Mat4 {
         let mut inv = Mat4::identity();
 
-        println!("initial value: {}", self);
-
         for col in 0..4 {
             // 1) Remove non-zero diagonals by swapping rows
             if self.m[col][col] == 0.0 {
@@ -161,8 +157,6 @@ impl Mat4 {
             }
         }
 
-        println!("step one: {}", self);
-
         // 2) Make all values underneath the pivot 0
         for col in 0..4 {
             for row in (col + 1)..4 {
@@ -176,8 +170,6 @@ impl Mat4 {
             }
         }
 
-        println!("vals under pivot zero: {}", self);
-
         // 3) Scale pivot to 1
         for row in 0..4 {
             let divisor = self.m[row][row];
@@ -186,8 +178,6 @@ impl Mat4 {
                 inv.m[row][col] = inv.m[row][col] / divisor;
             }
         }
-
-        println!("pivot = 1: {}", self);
 
         // 4) Make all values above the pivot 0]
         for row in 0..4 {
@@ -201,7 +191,6 @@ impl Mat4 {
                 self.m[row][col] = 0.0;
             }
         }
-        println!("self: {}", self);
         inv
     }
 
@@ -249,6 +238,8 @@ impl Display for Mat4 {
 
 #[cfg(test)]
 mod test {
+    use std::f64::consts::PI;
+
     use super::*;
 
     #[test]
@@ -358,11 +349,22 @@ mod test {
     }
 
     #[test]
-    fn rotate_vector() {
+    fn rotate_vector_about_x() {
         let expected = Vec3::new(1.0, -0.11950238978550387, 1.4091554842655063);
         let axis = Vec3::new(1.0, 0.0, 0.0);
         let result = Mat4::identity()
             .rotate(axis, 0.87)
+            .transform(Vec3::new(1.0, 1.0, 1.0));
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn rotate_vector_about_xy() {
+        let expected = Vec3::new(1.0, -1.0, 1.0);
+        let axis = Vec3::new(1.0, 1.0, 0.0);
+        let result = Mat4::identity()
+            .rotate(axis, PI)
             .transform(Vec3::new(1.0, 1.0, 1.0));
 
         assert_eq!(result, expected);
