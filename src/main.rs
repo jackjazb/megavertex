@@ -82,9 +82,10 @@ fn main() {
     while window.is_open() && !window.is_key_down(Key::Escape) {
         renderer.clear();
 
-        degs = degs + 0.05;
+        degs = degs + deg_to_rad(2.0);
+
         let mat = Mat4::identity()
-            .rotate(Vec3::new(0.0, 1.0, 0.0), degs)
+            .rotate(Vec3::new(0.5, 1.0, 0.0), degs)
             .scale(100.0)
             .translate(Vec3::new(300.0, 200.0, 0.0));
 
@@ -116,5 +117,9 @@ fn main() {
 // }
 
 fn rad_to_deg(rad: f64) -> f64 {
-    return rad * (180.0 / std::f64::consts::PI);
+    rad * (180.0 / PI)
+}
+
+fn deg_to_rad(deg: f64) -> f64 {
+    deg * (PI / 180.0)
 }

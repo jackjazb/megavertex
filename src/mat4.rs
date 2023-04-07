@@ -1,24 +1,32 @@
+use std::{
+    fmt::{Debug, Display},
+    mem::swap,
+};
+
 use crate::Vec3;
 
 /**
- * An implementation of a 4x4 matrix. It can be used to apply transformations to vectors.
- *
- * An arbitrary number of transformations can be applied fluently. For example, the following
- * applies a scaling, rotation, and translation to a vector in that order:
- *
- * Mat4::identity().translate(_).rotate(_).scale(_).transform(vector)
- *
- */
+An implementation of a 4x4 matrix. It can be used to apply transformations to vectors.
+
+An arbitrary number of transformations can be applied fluently. For example, the following
+applies a scaling, rotation, and translation to a vector in that order:
+
+```
+Mat4::identity().translate(_).rotate(_).scale(_).transform(vector)
+```
+*/
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub struct Mat4 {
-    pub rows: [[f64; 4]; 4],
+    pub m: [[f64; 4]; 4],
 }
 
 impl Mat4 {
-    // Initialises a new matrix with 1.0 as its diagonals.
+    /**
+    Initialises a new matrix with 1.0 as its diagonals.
+    */
     pub fn identity() -> Mat4 {
         Mat4 {
-            rows: [
+            m: [
                 [1.0, 0.0, 0.0, 0.0],
                 [0.0, 1.0, 0.0, 0.0],
                 [0.0, 0.0, 1.0, 0.0],
@@ -28,15 +36,15 @@ impl Mat4 {
     }
 
     /**
-     * Computes a matrix with which to scale a vector.
-     */
+    Computes a matrix with which to scale a vector.
+    */
     pub fn scale(self, n: f64) -> Mat4 {
         let mut res = Mat4::identity();
         for i in 0..4 {
             for j in 0..4 {
                 // Ignore the bottom row
                 if i != 3 {
-                    res.rows[i][j] = self.rows[i][j] * n;
+                    res.m[i][j] = self.m[i][j] * n;
                 }
             }
         }
@@ -44,11 +52,11 @@ impl Mat4 {
     }
 
     /**
-     * Computes a matrix with which to translate a vector.
-     */
+    Computes a matrix with which to translate a vector.
+    */
     pub fn translate(self, vec: Vec3) -> Mat4 {
         let trans_mat = Mat4 {
-            rows: [
+            m: [
                 [1.0, 0.0, 0.0, vec.x],
                 [0.0, 1.0, 0.0, vec.y],
                 [0.0, 0.0, 1.0, vec.z],
@@ -60,10 +68,10 @@ impl Mat4 {
     }
 
     /**
-     * Rotation matrix found at https://en.wikipedia.org/wiki/Rotation_matrix#Rotation_matrix_from_axis_and_angle.
-     *
-     * One day I will understand quaternions. Today is not that day.
-     */
+    Computes a matrix with which to rotate a vector.
+
+    Rotation matrix found at https://en.wikipedia.org/wiki/Rotation_matrix#Rotation_matrix_from_axis_and_angle.
+    */
     pub fn rotate(self, axis: Vec3, theta: f64) -> Mat4 {
         let (x, y, z) = (axis.x, axis.y, axis.z);
 
@@ -82,7 +90,7 @@ impl Mat4 {
         }
 
         let rotation = Mat4 {
-            rows: [
+            m: [
                 [
                     diagonal(theta, x),
                     edge_minus(x, y, z, theta),
@@ -108,36 +116,134 @@ impl Mat4 {
     }
 
     /**
-     * Multiply this by another 4x4 matrix.
-     */
+    Multiply this by another 4x4 matrix.
+    */
     pub fn mult(self, mat: Mat4) -> Mat4 {
         let mut res = Mat4::identity();
         for i in 0..4 {
             for j in 0..4 {
                 let mut sum = 0.0;
                 for k in 0..4 {
-                    sum = sum + self.rows[i][k] * mat.rows[k][j];
+                    sum = sum + self.m[i][k] * mat.m[k][j];
                 }
-                res.rows[i][j] = sum;
+                res.m[i][j] = sum;
             }
         }
         res
     }
 
     /**
-     * Apply this matrix as a transformation to a vector.
-     */
+    Computes the inverse of this matrix.
+
+    Adapted from https://www.scratchapixel.com/lessons/mathematics-physics-for-computer-graphics/matrix-inverse/matrix-inverse.html
+    */
+    pub fn inverse(mut self) -> Mat4 {
+        let mut inv = Mat4::identity();
+
+        println!("initial value: {}", self);
+
+        for col in 0..4 {
+            // 1) Remove non-zero diagonals by swapping rows
+            if self.m[col][col] == 0.0 {
+                // If a diagonal of 0.0 is identified:
+                //	- Find the row with the greatest value for this column
+                //	- Swap it with the current row
+                let mut greatest_row = col;
+                for row in 0..4 {
+                    if self.m[row][col].abs() > self.m[greatest_row][col].abs() {
+                        greatest_row = row;
+                    }
+                }
+
+                // Apply the same operations to both matrices
+                self = self.swap_row(col, greatest_row);
+                inv = inv.swap_row(col, greatest_row);
+            }
+        }
+
+        println!("step one: {}", self);
+
+        // 2) Make all values underneath the pivot 0
+        for col in 0..4 {
+            for row in (col + 1)..4 {
+                let k = self.m[row][col] / self.m[col][col]; // = current element over column diagonal
+                for j in 0..4 {
+                    self.m[row][j] -= k * self.m[col][j];
+                    inv.m[row][j] -= k * inv.m[col][j];
+                }
+                // Set the element to 0 in case of float errors
+                self.m[row][col] = 0.0;
+            }
+        }
+
+        println!("vals under pivot zero: {}", self);
+
+        // 3) Scale pivot to 1
+        for row in 0..4 {
+            let divisor = self.m[row][row];
+            for col in 0..4 {
+                self.m[row][col] = self.m[row][col] / divisor;
+                inv.m[row][col] = inv.m[row][col] / divisor;
+            }
+        }
+
+        println!("pivot = 1: {}", self);
+
+        // 4) Make all values above the pivot 0]
+        for row in 0..4 {
+            for col in (row + 1)..4 {
+                let k = self.m[row][col];
+                for j in 0..4 {
+                    self.m[row][j] -= self.m[col][j] * k;
+                    inv.m[row][j] -= inv.m[col][j] * k;
+                }
+                // Set the element to 0 in case of float errors
+                self.m[row][col] = 0.0;
+            }
+        }
+        println!("self: {}", self);
+        inv
+    }
+
+    /**
+     Swap rows a and b in the matrix
+    */
+    pub fn swap_row(self, a: usize, b: usize) -> Mat4 {
+        let mut res = self.clone();
+        for i in 0..4 {
+            let val_a = self.m[a][i];
+            let val_b = self.m[b][i];
+
+            res.m[a][i] = val_b;
+            res.m[b][i] = val_a;
+        }
+        res
+    }
+
+    /**
+    Apply this matrix as a transformation to a vector.
+    */
     pub fn transform(self, vec: Vec3) -> Vec3 {
         let vec4 = [vec.x, vec.y, vec.z, 1.0];
         let mut product = [0.0, 0.0, 0.0, 0.0];
 
         for i in 0..4 {
             for j in 0..4 {
-                product[i] = product[i] + (vec4[j] * self.rows[i][j]);
+                product[i] = product[i] + (vec4[j] * self.m[i][j]);
             }
         }
 
         Vec3::new(product[0], product[1], product[2])
+    }
+}
+
+impl Display for Mat4 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "\n{:?}\n{:?}\n{:?}\n{:?}\n",
+            self.m[0], self.m[1], self.m[2], self.m[3]
+        )
     }
 }
 
@@ -148,7 +254,7 @@ mod test {
     #[test]
     fn create_identity_matrix() {
         let expected = Mat4 {
-            rows: [
+            m: [
                 [1.0, 0.0, 0.0, 0.0],
                 [0.0, 1.0, 0.0, 0.0],
                 [0.0, 0.0, 1.0, 0.0],
@@ -161,9 +267,32 @@ mod test {
     }
 
     #[test]
+    fn swap_rows() {
+        let expected = Mat4 {
+            m: [
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0],
+            ],
+        };
+
+        let result = Mat4::identity().swap_row(1, 2);
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn compute_inverse() {
+        let mat_a = Mat4::identity();
+        let expected = Mat4::identity();
+        let result = mat_a.inverse();
+        assert_eq!(expected, result);
+    }
+
+    #[test]
     fn multiply_matrix() {
         let expected = Mat4 {
-            rows: [
+            m: [
                 [20.0, 19.0, 16.0, 10.0],
                 [24.0, 22.0, 18.0, 11.0],
                 [31.0, 28.0, 22.0, 13.0],
@@ -172,7 +301,7 @@ mod test {
         };
 
         let mat_a = Mat4 {
-            rows: [
+            m: [
                 [1.0, 2.0, 3.0, 4.0],
                 [2.0, 2.0, 3.0, 4.0],
                 [3.0, 3.0, 3.0, 4.0],
@@ -180,7 +309,7 @@ mod test {
             ],
         };
         let mat_b = Mat4 {
-            rows: [
+            m: [
                 [4.0, 3.0, 2.0, 1.0],
                 [3.0, 3.0, 2.0, 1.0],
                 [2.0, 2.0, 2.0, 1.0],
@@ -196,7 +325,7 @@ mod test {
     fn transform_vector() {
         let expected = Vec3::new(4.0, 5.0, 6.0);
         let transformation_matrix = Mat4 {
-            rows: [
+            m: [
                 [3.0, 0.0, 0.0, 1.0],
                 [0.0, 3.0, 0.0, 2.0],
                 [0.0, 0.0, 3.0, 3.0],
