@@ -6,17 +6,121 @@ mod renderer;
 use renderer::Renderer;
 
 mod vec3;
-use vec3::Vec3;
+use vec3::{Vec3, X_AXIS, Y_AXIS};
 
 mod mat4;
 use mat4::Mat4;
 
+// Window/renderer parameters
 const WIDTH: usize = 600;
 const HEIGHT: usize = 400;
-const SPEED: f64 = 0.3;
 
+// Movement parameters
+const SPEED: f64 = 0.3;
+const LOOK_SPEED: f64 = 0.1;
+
+#[derive(Copy, Clone)]
 struct Camera {
     pos: Vec3,
+    direction: Vec3,
+    right: Vec3,
+    up: Vec3,
+    rot: Vec3,
+}
+
+impl Camera {
+    fn new(pos: Vec3, target: Vec3) -> Camera {
+        let direction = pos.sub(target).normalise();
+        let right = Y_AXIS.cross_product(direction).normalise();
+        let up = direction.cross_product(right).normalise();
+
+        Camera {
+            pos,
+            direction,
+            right,
+            up,
+            rot: Vec3::new(0.0, -PI, 0.0),
+        }
+    }
+
+    /**
+    Recalculates the camera's 'right' and 'up' directions based on the current direction
+    */
+    fn recalc_vectors(&mut self) {
+        self.right = Y_AXIS.cross_product(self.direction).normalise();
+        self.up = self.direction.cross_product(self.right).normalise();
+        println!(
+            "CAMERA: pos {}, rot: {}, right {}, up {}, dir {}\n",
+            self.pos, self.rot, self.right, self.up, self.direction
+        );
+    }
+
+    /**
+    Generates a matrix to transform vectors into camera space
+    */
+    fn look_at(self) -> Mat4 {
+        let rotation = Mat4 {
+            m: [
+                [self.right.x, self.right.y, self.right.z, 0.0],
+                [self.up.x, self.up.y, self.up.z, 0.0],
+                [self.direction.x, self.direction.y, self.direction.z, 0.0],
+                [0.0, 0.0, 0.0, 1.0],
+            ],
+        };
+
+        let translation = Mat4::identity().translate(self.pos.scale(-1.0));
+        rotation.mult(translation)
+    }
+
+    /**
+    Move the camera forward by x (or backward if x is negative)
+    */
+    fn forward(&mut self, x: f64) {
+        self.pos = self.pos.add(self.direction.scale(x));
+    }
+
+    /**
+    Move the camera right by x (or left if x is negative)
+    */
+    fn right(&mut self, x: f64) {
+        self.pos = self.pos.add(self.right.scale(x));
+    }
+
+    /**
+    Rotate about each axis by x,y,z radians.
+
+    Note that:
+    * x = pitch
+    * y = yaw
+    */
+    fn rotate(&mut self, offset: Vec3) {
+        self.rot = self.rot.add(offset);
+        // if self.rot.x > PI {
+        //     self.rot.x = PI;
+        // }
+        // if self.rot.x < -PI {
+        //     self.rot.x = -PI;
+        // }
+
+        self.direction.x = self.rot.y.cos() * self.rot.x.cos();
+        self.direction.y = self.rot.x.sin();
+        self.direction.z = self.rot.y.sin() * self.rot.x.cos();
+
+        self.direction = self.direction.normalise();
+
+        self.recalc_vectors();
+    }
+}
+
+struct Object {
+    pos: Vec3,
+    vertices: Vec<Vec3>,
+}
+
+impl Object {
+    fn new(pos: Vec3, vertices: Vec<Vec3>) -> Object {
+        Object { pos, vertices }
+    }
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -32,17 +136,17 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Renderer and camera setup
     let mut renderer = Renderer::new(WIDTH, HEIGHT);
 
-    let mut camera = Camera {
-        pos: Vec3::new(0.0, 0.0, 10.0),
-    };
+    let mut camera = Camera::new(Vec3::new(0.0, 0.0, 10.0), Vec3::new(0.0, 0.0, 0.0));
 
-    let cubes = [
-        Vec3::new(-0.5, 0.0, -1.0),
-        Vec3::new(2.0, 0.0, -2.0),
-        Vec3::new(0.5, 0.0, -5.0),
+    let scene_objects = [
+        Object::new(Vec3::new(-0.5, -1.0, -1.0), plane()),
+        Object::new(Vec3::new(2.0, 1.0, -2.0), cube()),
+        Object::new(Vec3::new(0.5, 2.0, -5.0), cube()),
+        Object::new(Vec3::new(1.0, 3.0, -6.0), cube()),
+        Object::new(Vec3::new(3.0, 5.0, -10.0), cube()),
     ];
 
-    let mut degs = 0.0;
+    let mut counter = 0.0;
 
     // Keep track of delta time for animation smoothing.
     let mut start = SystemTime::now();
@@ -55,43 +159,58 @@ fn main() -> Result<(), Box<dyn Error>> {
         start = SystemTime::now();
         renderer.clear();
 
+        // Movement control
         if window.is_key_down(Key::W) {
-            camera.pos.z = camera.pos.z - SPEED * delta;
+            camera.forward(-SPEED * delta);
         }
         if window.is_key_down(Key::A) {
-            camera.pos.x = camera.pos.x + SPEED * delta / 2.0;
+            camera.right(SPEED * delta);
         }
         if window.is_key_down(Key::S) {
-            camera.pos.z = camera.pos.z + SPEED * delta;
+            camera.forward(SPEED * delta);
         }
         if window.is_key_down(Key::D) {
-            camera.pos.x = camera.pos.x - SPEED * delta / 2.0;
+            camera.right(-SPEED * delta);
         }
 
-        degs = degs + deg_to_rad(4.0 * delta);
+        // Rotation control
+        if window.is_key_down(Key::Up) {
+            camera.rotate(Vec3::new(LOOK_SPEED, 0.0, 0.0).scale(delta));
+        }
+        if window.is_key_down(Key::Down) {
+            camera.rotate(Vec3::new(-LOOK_SPEED, 0.0, 0.0).scale(delta));
+        }
+        if window.is_key_down(Key::Left) {
+            camera.rotate(Vec3::new(0.0, LOOK_SPEED, 0.0).scale(delta));
+        }
+        if window.is_key_down(Key::Right) {
+            camera.rotate(Vec3::new(0.0, -LOOK_SPEED, 0.0).scale(delta));
+        }
 
-        let cube_vert_trans = Mat4::identity()
-            .rotate(Vec3::new(0.0, 1.0, 0.0), PI / 2.0)
-            .rotate(Vec3::new(0.0, 1.0, 0.0), degs)
-            .scale(0.2);
+        // Add some movement to the world
+        counter = counter + deg_to_rad(4.0 * delta);
+        let bounce = Mat4::identity().rotate(Y_AXIS, counter / 2.0);
+        //.translate(Vec3::new(0.0, -0.5 + counter.sin().abs() * 2.0, 0.0));
 
-        let mut world_to_camera = camera.pos.clone();
-        world_to_camera.scale(-1.0);
-        println!("{:?}", camera.pos);
-        // Draw lots of three vertices as triangles from the cube vertex list.
-        let mut tri_buffer: Vec<Vec3> = vec![];
-        for &cube_pos in cubes.iter() {
-            let cube = cube();
+        // Draw each object
+        for object in scene_objects.iter() {
+            // Send sets of three from each objects vertices to the triangle renderer
+            let mut tri_buffer: Vec<Vec3> = vec![];
+            for &vertex in object.vertices.iter() {
+                let bounced = bounce.transform(vertex);
 
-            for x in 0..cube.len() {
-                let mut point = cube_vert_trans.transform(cube[x]);
-                let translation = Mat4::identity()
-                    .translate(cube_pos)
-                    .translate(camera.pos)
-                    .translate(Vec3::new(0.0, degs.sin().abs() - 0.5, -2.0));
-                point = translation.transform(point);
-                point.scale(1.0 / point.z);
-                tri_buffer.push(point);
+                // Transform each object relative to world space
+                let rel_to_world = Mat4::identity().translate(object.pos).transform(bounced);
+
+                // Transform the point to camera space
+                let rel_to_camera = camera.look_at().transform(rel_to_world);
+
+                // Apply perspective projection
+                let mut projected = rel_to_camera;
+                let z = projected.z;
+                projected = projected.scale(1.0 / rel_to_camera.z);
+                projected.z = z;
+                tri_buffer.push(projected);
 
                 if tri_buffer.len() > 2 {
                     renderer.draw_triangle(tri_buffer);
@@ -123,8 +242,8 @@ fn deg_to_rad(deg: f64) -> f64 {
     deg * (PI / 180.0)
 }
 
-fn cube() -> [Vec3; 36] {
-    [
+fn cube() -> Vec<Vec3> {
+    vec![
         Vec3::new(-0.5, -0.5, -0.5),
         Vec3::new(0.5, -0.5, -0.5),
         Vec3::new(0.5, 0.5, -0.5),
@@ -161,5 +280,16 @@ fn cube() -> [Vec3; 36] {
         Vec3::new(0.5, 0.5, 0.5),
         Vec3::new(-0.5, 0.5, 0.5),
         Vec3::new(-0.5, 0.5, -0.5),
+    ]
+}
+
+fn plane() -> Vec<Vec3> {
+    vec![
+        Vec3::new(-0.5, 0.0, -0.5),
+        Vec3::new(0.5, 0.0, -0.5),
+        Vec3::new(-0.5, 0.0, 0.5),
+        Vec3::new(-0.5, 0.0, 0.5),
+        Vec3::new(0.5, 0.0, 0.5),
+        Vec3::new(0.5, 0.0, -0.5),
     ]
 }

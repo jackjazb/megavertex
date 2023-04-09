@@ -70,7 +70,7 @@ impl Mat4 {
     Rotation matrix found at https://en.wikipedia.org/wiki/Rotation_matrix#Rotation_matrix_from_axis_and_angle.
     */
     pub fn rotate(self, mut axis: Vec3, theta: f64) -> Mat4 {
-        axis.normalise();
+        axis = axis.normalise();
         let (x, y, z) = (axis.x, axis.y, axis.z);
 
         // Computes cos(t) + p^2(1-cos(t)) - t = theta, p = point
