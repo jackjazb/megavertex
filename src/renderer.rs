@@ -33,7 +33,7 @@ impl Renderer {
             let mut vec1 = vertices[vert_index];
             let mut vec2 = vertices[next_vert_index];
 
-            if vec1.z > 0.0 || vec2.z > 0.0 {
+            if vec1.z >= 0.0 || vec2.z >= 0.0 {
                 return;
             }
 

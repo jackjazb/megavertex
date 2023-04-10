@@ -18,7 +18,13 @@ const HEIGHT: usize = 400;
 // Movement parameters
 const SPEED: f64 = 0.3;
 const LOOK_SPEED: f64 = 0.1;
+const SENSITIVITY: f64 = 0.1;
 
+/**
+Calculates matrices relating to a 'camera' in the 3D scene.
+
+The camera looks down the negative Z axis.
+ */
 #[derive(Copy, Clone)]
 struct Camera {
     pos: Vec3,
@@ -29,30 +35,31 @@ struct Camera {
 }
 
 impl Camera {
-    fn new(pos: Vec3, target: Vec3) -> Camera {
-        let direction = pos.sub(target).normalise();
-        let right = Y_AXIS.cross_product(direction).normalise();
-        let up = direction.cross_product(right).normalise();
-
-        Camera {
+    fn new(pos: Vec3) -> Camera {
+        let mut cam = Camera {
             pos,
-            direction,
-            right,
-            up,
-            rot: Vec3::new(0.0, -PI, 0.0),
-        }
+            direction: Vec3::new(0.0, 0.0, 0.0),
+            right: X_AXIS,
+            up: Y_AXIS,
+            rot: Vec3::new(0.0, -PI / 2.0, 0.0),
+        };
+        cam.recalc_vectors();
+        cam
     }
 
     /**
     Recalculates the camera's 'right' and 'up' directions based on the current direction
     */
     fn recalc_vectors(&mut self) {
+        self.direction.x = self.rot.y.cos() * self.rot.x.cos();
+        self.direction.y = self.rot.x.sin();
+        self.direction.z = self.rot.y.sin() * self.rot.x.cos();
+
+        self.direction = self.direction.normalise();
+
+        println!("dir: {}\nrot: {}\n\n", self.direction, self.rot);
         self.right = Y_AXIS.cross_product(self.direction).normalise();
         self.up = self.direction.cross_product(self.right).normalise();
-        println!(
-            "CAMERA: pos {}, rot: {}, right {}, up {}, dir {}\n",
-            self.pos, self.rot, self.right, self.up, self.direction
-        );
     }
 
     /**
@@ -68,7 +75,7 @@ impl Camera {
             ],
         };
 
-        let translation = Mat4::identity().translate(self.pos.scale(-1.0));
+        let translation = Mat4::identity().translate(self.pos.scale(1.0));
         rotation.mult(translation)
     }
 
@@ -102,12 +109,6 @@ impl Camera {
         //     self.rot.x = -PI;
         // }
 
-        self.direction.x = self.rot.y.cos() * self.rot.x.cos();
-        self.direction.y = self.rot.x.sin();
-        self.direction.z = self.rot.y.sin() * self.rot.x.cos();
-
-        self.direction = self.direction.normalise();
-
         self.recalc_vectors();
     }
 }
@@ -135,25 +136,26 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Renderer and camera setup
     let mut renderer = Renderer::new(WIDTH, HEIGHT);
-
-    let mut camera = Camera::new(Vec3::new(0.0, 0.0, 10.0), Vec3::new(0.0, 0.0, 0.0));
+    let mut camera = Camera::new(Vec3::new(0.0, 0.0, 20.0));
 
     let scene_objects = [
-        Object::new(Vec3::new(-0.5, -1.0, -1.0), plane()),
-        Object::new(Vec3::new(2.0, 1.0, -2.0), cube()),
-        Object::new(Vec3::new(0.5, 2.0, -5.0), cube()),
-        Object::new(Vec3::new(1.0, 3.0, -6.0), cube()),
-        Object::new(Vec3::new(3.0, 5.0, -10.0), cube()),
+        Object::new(Vec3::new(0.0, -2.0, -4.0), plane()),
+        Object::new(Vec3::new(3.0, 0.0, -4.0), cube()),
+        Object::new(Vec3::new(6.0, 2.0, -4.0), cube()),
+        Object::new(Vec3::new(9.0, 4.0, -4.0), cube()),
+        Object::new(Vec3::new(12.0, 6.0, -4.0), cube()),
     ];
 
     let mut counter = 0.0;
 
-    // Keep track of delta time for animation smoothing.
+    let mut last_mouse: (f32, f32) = (0.0, 0.0);
+
+    // Keep track of delta time for animation smoothing
     let mut start = SystemTime::now();
     let mut end = SystemTime::now();
     let mut delta: f64;
 
-    // Main loop.
+    // Main loop
     while window.is_open() && !window.is_key_down(Key::Escape) {
         delta = (end.duration_since(start)?.as_millis() as f64) / 30.0;
         start = SystemTime::now();
@@ -161,24 +163,31 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         // Movement control
         if window.is_key_down(Key::W) {
-            camera.forward(-SPEED * delta);
-        }
-        if window.is_key_down(Key::A) {
-            camera.right(SPEED * delta);
-        }
-        if window.is_key_down(Key::S) {
             camera.forward(SPEED * delta);
         }
-        if window.is_key_down(Key::D) {
+        if window.is_key_down(Key::A) {
             camera.right(-SPEED * delta);
         }
+        if window.is_key_down(Key::S) {
+            camera.forward(-SPEED * delta);
+        }
+        if window.is_key_down(Key::D) {
+            camera.right(SPEED * delta);
+        }
+
+        window.get_mouse_pos(minifb::MouseMode::Clamp).map(|mouse| {
+            let x_offset = (last_mouse.0 - mouse.0) * (LOOK_SPEED * SENSITIVITY * delta) as f32;
+            let y_offset = (last_mouse.1 - mouse.1) * (LOOK_SPEED * SENSITIVITY * delta) as f32;
+            last_mouse = mouse;
+            //camera.rotate(Vec3::new(y_offset as f64, x_offset as f64, 0.0));
+        });
 
         // Rotation control
         if window.is_key_down(Key::Up) {
-            camera.rotate(Vec3::new(LOOK_SPEED, 0.0, 0.0).scale(delta));
+            camera.rotate(Vec3::new(-LOOK_SPEED, 0.0, 0.0).scale(delta));
         }
         if window.is_key_down(Key::Down) {
-            camera.rotate(Vec3::new(-LOOK_SPEED, 0.0, 0.0).scale(delta));
+            camera.rotate(Vec3::new(LOOK_SPEED, 0.0, 0.0).scale(delta));
         }
         if window.is_key_down(Key::Left) {
             camera.rotate(Vec3::new(0.0, LOOK_SPEED, 0.0).scale(delta));
@@ -189,7 +198,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         // Add some movement to the world
         counter = counter + deg_to_rad(4.0 * delta);
-        let bounce = Mat4::identity().rotate(Y_AXIS, counter / 2.0);
+        let frame_transform = Mat4::identity().rotate(Y_AXIS, counter / 2.0).scale(2.0);
         //.translate(Vec3::new(0.0, -0.5 + counter.sin().abs() * 2.0, 0.0));
 
         // Draw each object
@@ -197,7 +206,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             // Send sets of three from each objects vertices to the triangle renderer
             let mut tri_buffer: Vec<Vec3> = vec![];
             for &vertex in object.vertices.iter() {
-                let bounced = bounce.transform(vertex);
+                let bounced = frame_transform.transform(vertex);
 
                 // Transform each object relative to world space
                 let rel_to_world = Mat4::identity().translate(object.pos).transform(bounced);
