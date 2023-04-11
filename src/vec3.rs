@@ -35,10 +35,6 @@ impl Vec3 {
         Vec3::new(self.x * n, self.y * n, self.z * n)
     }
 
-    pub fn dot_product(&self, vec: Vec3) -> f64 {
-        (self.x * vec.x) + (self.y * vec.y) + (self.z + vec.z)
-    }
-
     pub fn cross_product(self, vec: Vec3) -> Vec3 {
         let x = self.y * vec.z - self.z * vec.y;
         let y = self.z * vec.x - self.x * vec.z;

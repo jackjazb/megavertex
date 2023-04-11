@@ -1,4 +1,7 @@
-use crate::Mat4;
+use std::collections::{hash_map::Entry, HashMap};
+
+use fontdue::Font;
+
 use crate::Vec3;
 
 const BLACK: u32 = 0x000000;
@@ -10,20 +13,51 @@ pub struct Renderer {
     width: usize,
     height: usize,
     pub buffer: Vec<u32>,
+    font: Font,
 }
 
 impl Renderer {
     pub fn new(width: usize, height: usize) -> Self {
+        // Read the font data.
+        let font = include_bytes!("../resources/liberation-mono.ttf") as &[u8];
+        // Parse it into the font type.
+        let font = fontdue::Font::from_bytes(font, fontdue::FontSettings::default()).unwrap();
+
         Renderer {
             width,
             height,
             buffer: vec![BLACK; width * height],
+            font,
         }
     }
 
+    pub fn write_text(&mut self, text: &str, pos: (u32, u32)) {
+        let mut x_offset = pos.0;
+        let space_offset = self.font.rasterize('a', 15.0).0.width;
+        for char in text.chars() {
+            // Rasterize and get the layout metrics for the letter 'g' at 17px.
+            let (metrics, bitmap) = self.font.rasterize(char, 15.0);
+            for y in 0..metrics.height {
+                for x in 0..metrics.width {
+                    let char_s = bitmap[x + y * metrics.width];
+                    if char_s > 20 {
+                        self.draw_pixel(
+                            [(x + x_offset as usize) as i64, (y + pos.1 as usize) as i64],
+                            char_s as u32,
+                        );
+                    }
+                }
+            }
+            x_offset = x_offset + space_offset as u32;
+        }
+    }
     // Draws a triangle from an array of 3 points.
     pub fn draw_triangle(&mut self, vertices: Vec<Vec3>) {
         let mut vert_index: usize = 0;
+
+        // This holds a map of screen Y to an ordererd vector of pixel X locations
+        let mut row_pixels: HashMap<i64, Vec<i64>> = HashMap::new();
+
         while vert_index < 3 {
             let mut next_vert_index = vert_index + 1;
             if next_vert_index > 2 {
@@ -49,12 +83,19 @@ impl Renderer {
             // https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm#Algorithm_for_integer_arithmetic
             let a = [vec1.x as i64, vec1.y as i64];
             let b = [vec2.x as i64, vec2.y as i64];
-            self.draw_line(a, b);
+            self.draw_line(a, b, &mut row_pixels);
             vert_index = vert_index + 1;
+        }
+
+        for row in row_pixels {
+            let y = row.0;
+            for x in row.1[0]..row.1[row.1.len() - 1] {
+                self.draw_pixel([x, y], WHITE);
+            }
         }
     }
 
-    pub fn draw_line(&mut self, a: [i64; 2], b: [i64; 2]) {
+    fn draw_line(&mut self, a: [i64; 2], b: [i64; 2], row_pixels: &mut HashMap<i64, Vec<i64>>) {
         let dx = (b[0] - a[0]).abs();
         let dy = -(b[1] - a[1]).abs();
 
@@ -79,6 +120,24 @@ impl Renderer {
 
         loop {
             self.draw_pixel([x, y], WHITE);
+
+            /*
+            This first checks if the row 'y' has an initialised vector of pixels. If the vector
+            has already been initialised, the pixel is inserted in order using the binary search matcher.
+            */
+            // match row_pixels.entry(y) {
+            //     Entry::Vacant(e) => {
+            //         e.insert(vec![x]);
+            //     }
+            //     Entry::Occupied(mut e) => {
+            //         let vec = e.get_mut();
+            //         match vec.binary_search(&x) {
+            //             Ok(_) => {}
+            //             Err(pos) => e.get_mut().insert(pos, x),
+            //         }
+            //     }
+            // }
+
             if x == b[0] && y == b[1] {
                 break;
             }

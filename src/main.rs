@@ -1,117 +1,27 @@
 use std::{error::Error, f64::consts::PI, time::SystemTime};
 
-use minifb::{Key, Window, WindowOptions};
+use minifb::{Key, Scale, ScaleMode, Window, WindowOptions};
 
 mod renderer;
 use renderer::Renderer;
 
 mod vec3;
-use vec3::{Vec3, X_AXIS, Y_AXIS};
+use vec3::{Vec3, Y_AXIS};
 
 mod mat4;
 use mat4::Mat4;
 
+mod camera;
+use camera::Camera;
+
 // Window/renderer parameters
-const WIDTH: usize = 600;
-const HEIGHT: usize = 400;
+const WIDTH: usize = 300;
+const HEIGHT: usize = 200;
 
 // Movement parameters
-const SPEED: f64 = 0.3;
+const SPEED: f64 = 0.5;
 const LOOK_SPEED: f64 = 0.1;
 const SENSITIVITY: f64 = 0.1;
-
-/**
-Calculates matrices relating to a 'camera' in the 3D scene.
-
-The camera looks down the negative Z axis.
- */
-#[derive(Copy, Clone)]
-struct Camera {
-    pos: Vec3,
-    direction: Vec3,
-    right: Vec3,
-    up: Vec3,
-    rot: Vec3,
-}
-
-impl Camera {
-    fn new(pos: Vec3) -> Camera {
-        let mut cam = Camera {
-            pos,
-            direction: Vec3::new(0.0, 0.0, 0.0),
-            right: X_AXIS,
-            up: Y_AXIS,
-            rot: Vec3::new(0.0, -PI / 2.0, 0.0),
-        };
-        cam.recalc_vectors();
-        cam
-    }
-
-    /**
-    Recalculates the camera's 'right' and 'up' directions based on the current direction
-    */
-    fn recalc_vectors(&mut self) {
-        self.direction.x = self.rot.y.cos() * self.rot.x.cos();
-        self.direction.y = self.rot.x.sin();
-        self.direction.z = self.rot.y.sin() * self.rot.x.cos();
-
-        self.direction = self.direction.normalise();
-
-        println!("dir: {}\nrot: {}\n\n", self.direction, self.rot);
-        self.right = Y_AXIS.cross_product(self.direction).normalise();
-        self.up = self.direction.cross_product(self.right).normalise();
-    }
-
-    /**
-    Generates a matrix to transform vectors into camera space
-    */
-    fn look_at(self) -> Mat4 {
-        let rotation = Mat4 {
-            m: [
-                [self.right.x, self.right.y, self.right.z, 0.0],
-                [self.up.x, self.up.y, self.up.z, 0.0],
-                [self.direction.x, self.direction.y, self.direction.z, 0.0],
-                [0.0, 0.0, 0.0, 1.0],
-            ],
-        };
-
-        let translation = Mat4::identity().translate(self.pos.scale(1.0));
-        rotation.mult(translation)
-    }
-
-    /**
-    Move the camera forward by x (or backward if x is negative)
-    */
-    fn forward(&mut self, x: f64) {
-        self.pos = self.pos.add(self.direction.scale(x));
-    }
-
-    /**
-    Move the camera right by x (or left if x is negative)
-    */
-    fn right(&mut self, x: f64) {
-        self.pos = self.pos.add(self.right.scale(x));
-    }
-
-    /**
-    Rotate about each axis by x,y,z radians.
-
-    Note that:
-    * x = pitch
-    * y = yaw
-    */
-    fn rotate(&mut self, offset: Vec3) {
-        self.rot = self.rot.add(offset);
-        // if self.rot.x > PI {
-        //     self.rot.x = PI;
-        // }
-        // if self.rot.x < -PI {
-        //     self.rot.x = -PI;
-        // }
-
-        self.recalc_vectors();
-    }
-}
 
 struct Object {
     pos: Vec3,
@@ -130,9 +40,17 @@ fn main() -> Result<(), Box<dyn Error>> {
         "test window - esc exits",
         WIDTH,
         HEIGHT,
-        WindowOptions::default(),
+        WindowOptions {
+            borderless: false,
+            transparency: false,
+            title: true,
+            resize: false,
+            scale: Scale::X2,
+            scale_mode: ScaleMode::Stretch,
+            topmost: false,
+            none: false,
+        },
     )?;
-    window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
 
     // Renderer and camera setup
     let mut renderer = Renderer::new(WIDTH, HEIGHT);
@@ -154,32 +72,35 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut start = SystemTime::now();
     let mut end = SystemTime::now();
     let mut delta: f64;
+    let mut fps = 0.0;
 
     // Main loop
     while window.is_open() && !window.is_key_down(Key::Escape) {
         delta = (end.duration_since(start)?.as_millis() as f64) / 30.0;
+        fps = 1000.0 / (end.duration_since(start)?.as_millis() as f64);
         start = SystemTime::now();
         renderer.clear();
-
+        renderer.write_text("text test", (10, 10));
         // Movement control
         if window.is_key_down(Key::W) {
-            camera.forward(SPEED * delta);
-        }
-        if window.is_key_down(Key::A) {
-            camera.right(-SPEED * delta);
+            camera.translate(SPEED * delta, 0.0);
         }
         if window.is_key_down(Key::S) {
-            camera.forward(-SPEED * delta);
+            camera.translate(-SPEED * delta, 0.0);
         }
+
         if window.is_key_down(Key::D) {
-            camera.right(SPEED * delta);
+            camera.translate(0.0, SPEED * delta);
+        }
+        if window.is_key_down(Key::A) {
+            camera.translate(0.0, -SPEED * delta);
         }
 
         window.get_mouse_pos(minifb::MouseMode::Clamp).map(|mouse| {
             let x_offset = (last_mouse.0 - mouse.0) * (LOOK_SPEED * SENSITIVITY * delta) as f32;
-            let y_offset = (last_mouse.1 - mouse.1) * (LOOK_SPEED * SENSITIVITY * delta) as f32;
+            let y_offset = (mouse.1 - last_mouse.1) * (LOOK_SPEED * SENSITIVITY * delta) as f32;
             last_mouse = mouse;
-            //camera.rotate(Vec3::new(y_offset as f64, x_offset as f64, 0.0));
+            // camera.rotate(Vec3::new(y_offset as f64, x_offset as f64, 0.0));
         });
 
         // Rotation control
