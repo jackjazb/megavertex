@@ -1,5 +1,10 @@
 use std::fmt::Display;
 
+pub const ORIGIN: Vec3 = Vec3 {
+    x: 0.0,
+    y: 0.0,
+    z: 0.0,
+};
 pub const X_AXIS: Vec3 = Vec3 {
     x: 1.0,
     y: 0.0,

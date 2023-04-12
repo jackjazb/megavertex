@@ -6,33 +6,27 @@ mod renderer;
 use renderer::Renderer;
 
 mod vec3;
-use vec3::{Vec3, Y_AXIS};
+use vec3::{Vec3, ORIGIN};
 
 mod mat4;
-use mat4::Mat4;
 
 mod camera;
 use camera::Camera;
 
+mod object;
+use object::Object;
+
+mod world;
+use world::World;
+
 // Window/renderer parameters
-const WIDTH: usize = 300;
-const HEIGHT: usize = 200;
+const WIDTH: usize = 600;
+const HEIGHT: usize = 400;
 
 // Movement parameters
 const SPEED: f64 = 0.5;
 const LOOK_SPEED: f64 = 0.1;
 const SENSITIVITY: f64 = 0.1;
-
-struct Object {
-    pos: Vec3,
-    vertices: Vec<Vec3>,
-}
-
-impl Object {
-    fn new(pos: Vec3, vertices: Vec<Vec3>) -> Object {
-        Object { pos, vertices }
-    }
-}
 
 fn main() -> Result<(), Box<dyn Error>> {
     // minifb window setup.
@@ -45,7 +39,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             transparency: false,
             title: true,
             resize: false,
-            scale: Scale::X2,
+            scale: Scale::X1,
             scale_mode: ScaleMode::Stretch,
             topmost: false,
             none: false,
@@ -55,14 +49,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Renderer and camera setup
     let mut renderer = Renderer::new(WIDTH, HEIGHT);
     let mut camera = Camera::new(Vec3::new(0.0, 0.0, 20.0));
+    let mut world = World::new();
 
-    let scene_objects = [
-        Object::new(Vec3::new(0.0, -2.0, -4.0), plane()),
-        Object::new(Vec3::new(3.0, 0.0, -4.0), cube()),
-        Object::new(Vec3::new(6.0, 2.0, -4.0), cube()),
-        Object::new(Vec3::new(9.0, 4.0, -4.0), cube()),
-        Object::new(Vec3::new(12.0, 6.0, -4.0), cube()),
-    ];
+    let cow = Object::from_obj("./resources/cow.obj").expect("Failed to load object.");
+    let cube = Object::from_obj("./resources/cube.obj").expect("Failed to load object.");
+    world.add_object(cow, ORIGIN);
+    world.add_object(cube, Vec3::new(0.0, 0.0, 10.0));
 
     let mut degs = 0.0;
 
@@ -120,37 +112,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         renderer.write_text("text test", (10, 10));
 
         // Add some movement to the world
-        degs = degs + deg_to_rad(4.0 * delta);
-        let per_frame_transform = Mat4::identity().rotate(Y_AXIS, degs / 2.0).scale(2.0);
+        //degs = degs + deg_to_rad(4.0 * delta);
+        //let per_frame_transform = Mat4::identity().rotate(Y_AXIS, degs / 2.0).scale(2.0);
 
-        // Draw each object
-        for object in scene_objects.iter() {
-            // Send sets of three from each objects vertices to the triangle renderer
-            let mut tri_buffer: Vec<Vec3> = vec![];
-            for &vertex in object.vertices.iter() {
-                let bounced = per_frame_transform.transform(vertex);
-
-                // Transform each object relative to world space
-                let rel_to_world = Mat4::identity().translate(object.pos).transform(bounced);
-
-                // Transform the point to camera space
-                let rel_to_camera = camera.look_at().transform(rel_to_world);
-
-                // Apply perspective projection
-                let mut projected = rel_to_camera;
-                let z = projected.z;
-                projected = projected.scale(1.0 / rel_to_camera.z);
-                projected.z = z;
-                tri_buffer.push(projected);
-
-                if tri_buffer.len() > 2 {
-                    renderer.draw_triangle(tri_buffer);
-
-                    // Reset triangle buffer
-                    tri_buffer = vec![];
-                }
-            }
-        }
+        camera.render_world(&mut renderer, &world);
 
         window
             .update_with_buffer(&renderer.buffer, WIDTH, HEIGHT)
