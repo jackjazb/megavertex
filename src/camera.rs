@@ -24,7 +24,7 @@ pub struct Camera {
 
 impl Camera {
     /**
-    Creates a new Camera at the given position. The camera is looking down the negative Z axis by default.
+    Creates a new Camera at the given position. The camera looks down the negative Z axis by default.
      */
     pub fn new(pos: Vec3) -> Camera {
         let mut cam = Camera {
@@ -79,8 +79,8 @@ impl Camera {
         translation = translation.normalise();
         translation = translation.scale(x);
 
-        self.pos = self.pos.add(translation);
-        self.pos = self.pos.add(self.right.scale(z));
+        self.pos = self.pos + translation;
+        self.pos = self.pos + self.right.scale(z);
     }
 
     /**
@@ -91,7 +91,7 @@ impl Camera {
     * Y is 'Yaw'
     */
     pub fn rotate(&mut self, offset: Vec3) {
-        self.rot = self.rot.add(offset);
+        self.rot = self.rot + offset;
 
         if self.rot.x > PI / 2.0 {
             self.rot.x = PI / 2.0;
@@ -109,10 +109,11 @@ impl Camera {
     pub fn render_world(self, renderer: &mut Renderer, world: &World) {
         for object in &world.objects {
             for face in &object.faces {
+                let face_vertex_indices = face.vertices;
                 let world_vertices = vec![
-                    object.vertices[face.0 - 1],
-                    object.vertices[face.1 - 1],
-                    object.vertices[face.2 - 1],
+                    object.vertices[face_vertex_indices.0],
+                    object.vertices[face_vertex_indices.1],
+                    object.vertices[face_vertex_indices.2],
                 ];
 
                 let mut screen_vertices = vec![];
@@ -131,7 +132,14 @@ impl Camera {
                     screen_vertices.push(projected);
                 }
 
-                renderer.draw_triangle(screen_vertices);
+                let tex_coord_indices = face.tex_coords;
+                let tex_coords = vec![
+                    object.tex_coords[tex_coord_indices.0],
+                    object.tex_coords[tex_coord_indices.1],
+                    object.tex_coords[tex_coord_indices.2],
+                ];
+
+                renderer.draw_triangle(screen_vertices, &object.texture, tex_coords);
             }
         }
     }

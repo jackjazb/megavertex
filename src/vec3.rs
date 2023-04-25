@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, ops::Add};
 
 pub const ORIGIN: Vec3 = Vec3 {
     x: 0.0,
@@ -28,14 +28,6 @@ impl Vec3 {
         Vec3 { x, y, z }
     }
 
-    pub fn add(self, vec: Vec3) -> Vec3 {
-        Vec3::new(self.x + vec.x, self.y + vec.y, self.z + vec.z)
-    }
-
-    pub fn sub(self, vec: Vec3) -> Vec3 {
-        Vec3::new(self.x - vec.x, self.y - vec.y, self.z - vec.z)
-    }
-
     pub fn scale(self, n: f64) -> Vec3 {
         Vec3::new(self.x * n, self.y * n, self.z * n)
     }
@@ -57,12 +49,25 @@ impl Vec3 {
     }
 }
 
+impl Add for Vec3 {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self::Output {
+        Self {
+            x: self.x + other.x,
+            y: self.y + other.y,
+            z: self.z + other.z,
+        }
+    }
+}
+
 impl Display for Vec3 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "[{:.2}, {:.2}, {:.2}]", self.x, self.y, self.z)
     }
 }
 
+#[cfg(test)]
 mod test {
     use super::*;
 
@@ -70,23 +75,42 @@ mod test {
     fn add_vector() {
         let expected = Vec3::new(10.0, 10.0, 10.0);
         let initial = Vec3::new(5.0, 5.0, 5.0);
-        let result = initial.add(initial);
+        let result = initial + initial;
         assert_eq!(expected, result);
     }
 
     #[test]
-    fn sub_vector() {
-        let expected = Vec3::new(10.0, 10.0, 10.0);
-        let initial = Vec3::new(15.0, 15.0, 15.0);
-        let result = initial.sub(Vec3::new(5.0, 5.0, 5.0));
-        assert_eq!(expected, result);
-    }
-
-    #[test]
-    pub fn cross_product() {
+    fn cross_product() {
         let expected = Vec3::new(-3.0, 6.0, -3.0);
         let initial = Vec3::new(2.0, 3.0, 4.0);
         let result = initial.cross_product(Vec3::new(5.0, 6.0, 7.0));
+
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn scale_vector() {
+        let expected = Vec3::new(10.0, 10.0, 10.0);
+        let initial = Vec3::new(2.0, 2.0, 2.0);
+        let result = initial.scale(5.0);
+
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn calc_length() {
+        let expected = 3.0;
+        let initial = Vec3::new(1.0, 2.0, 2.0);
+        let result = initial.length();
+
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn normalise() {
+        let expected = Vec3::new(1.0, 0.0, 0.0);
+        let initial = Vec3::new(7.0, 0.0, 0.0);
+        let result = initial.normalise();
         assert_eq!(expected, result);
     }
 }

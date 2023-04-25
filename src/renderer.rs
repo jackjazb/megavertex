@@ -1,14 +1,25 @@
+use std::{
+    cmp::{max, min},
+    vec,
+};
+
 use fontdue::Font;
 
-use crate::Vec3;
+use crate::{object::Texture, vec2::Vec2, Vec3};
 
 const BLACK: u32 = 0x000000;
 const WHITE: u32 = 0xffffff;
+const BLUE: u32 = 0x0000aa;
+
+const MAX_Z: f64 = 1000.0;
+
+const WIREFRAME: bool = false;
 
 pub struct Renderer {
     width: usize,
     height: usize,
     pub buffer: Vec<u32>,
+    depth_buffer: Vec<f64>,
     font: Font,
 }
 
@@ -18,16 +29,19 @@ impl Renderer {
         let font = include_bytes!("../resources/liberation-mono.ttf") as &[u8];
         let font = fontdue::Font::from_bytes(font, fontdue::FontSettings::default()).unwrap();
 
-        Renderer {
+        let mut renderer = Renderer {
             width,
             height,
-            buffer: vec![BLACK; width * height],
+            buffer: vec![],
+            depth_buffer: vec![],
             font,
-        }
+        };
+        renderer.clear();
+        return renderer;
     }
 
-    pub fn write_text(&mut self, text: &str, pos: (usize, usize)) {
-        let mut x_offset = pos.0;
+    pub fn write_text(&mut self, text: &str, pos: Vec2) {
+        let mut x_offset = pos.x;
         for char in text.chars() {
             // Rasterize and get the layout metrics for the letter 'g' at 17px.
             let (metrics, bitmap) = self.font.rasterize(char, 11.0);
@@ -35,87 +49,107 @@ impl Renderer {
             for y in 0..metrics.height {
                 for x in 0..metrics.width {
                     let char_s = bitmap[x + y * metrics.width];
-                    self.draw_pixel(((x + x_offset), (y + pos.1)), char_s as u32);
+                    self.draw_pixel(
+                        Vec3::new(x as f64 + x_offset, y as f64 + pos.y, 0.0),
+                        char_s as u32,
+                    );
                 }
             }
-            x_offset = x_offset + metrics.advance_width as usize;
+            x_offset = x_offset + metrics.advance_width as f64;
         }
     }
     // Draws a triangle from an array of 3 points.
-    pub fn draw_triangle(&mut self, vertices: Vec<Vec3>) {
-        let mut vert_index: usize = 0;
+    pub fn draw_triangle(&mut self, vertices: Vec<Vec3>, texture: &Texture, tex_coords: Vec<Vec2>) {
+        let col = WHITE;
 
-        while vert_index < 3 {
-            let mut next_vert_index = vert_index + 1;
-            if next_vert_index > 2 {
-                next_vert_index = 0;
-            }
+        // Contains the rasterized points to be drawn
+        let mut raster_points: Vec<Vec3> = vec![];
 
-            let mut vec1 = vertices[vert_index];
-            let mut vec2 = vertices[next_vert_index];
-
-            if vec1.z >= 0.0 || vec2.z >= 0.0 {
+        for vec in vertices {
+            if vec.z >= 0.0 {
                 return;
             }
+            // Scale the point up to raster space
+            let scaled = vec.scale(self.width as f64);
+            let scr_centre = Vec3::new(self.width as f64 / 2.0, self.height as f64 / 2.0, 0.0);
+            let centred = scaled + scr_centre;
 
-            // Scale the vector up to screen size and align 0 to the centre of the screen
-            vec1 = vec1.scale(self.width as f64);
-            vec2 = vec2.scale(self.width as f64);
+            raster_points.push(Vec3::new(centred.x, centred.y, vec.z));
+        }
 
-            let scr_centre = Vec3::new((self.width / 2) as f64, (self.height / 2) as f64, 0.0);
-            vec1 = vec1.add(scr_centre);
-            vec2 = vec2.add(scr_centre);
+        // Compute the triangle's boundaries
+        let x_min = min3(raster_points[0].x, raster_points[1].x, raster_points[2].x);
+        let x_max = max3(raster_points[0].x, raster_points[1].x, raster_points[2].x);
 
+        let y_min = min3(raster_points[0].y, raster_points[1].y, raster_points[2].y);
+        let y_max = max3(raster_points[0].y, raster_points[1].y, raster_points[2].y);
+
+        // TODO: This currently computes the average Z coord of all points in the triangle - it would be better to do this on a per pixel basis
+        let plane_z = (raster_points[0].z + raster_points[1].z + raster_points[2].z) / 3.0;
+        for x in x_min..x_max {
+            for y in y_min..y_max {
+                if point_in_triangle(
+                    Vec3::new(x as f64, y as f64, 0.0),
+                    raster_points[0],
+                    raster_points[1],
+                    raster_points[2],
+                ) {
+                    self.draw_pixel(Vec3::new(x as f64, y as f64, plane_z), col as u32);
+                }
+            }
+        }
+
+        if WIREFRAME {
             // Bresenham's line algorithm - info here:
             // https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm#Algorithm_for_integer_arithmetic
-            let a = (vec1.x as isize, vec1.y as isize);
-            let b = (vec2.x as isize, vec2.y as isize);
-            self.draw_line(a, b);
-            vert_index = vert_index + 1;
+            self.draw_line(raster_points[0], raster_points[1]);
+            self.draw_line(raster_points[1], raster_points[2]);
+            self.draw_line(raster_points[2], raster_points[0]);
         }
     }
 
-    fn draw_line(&mut self, a: (isize, isize), b: (isize, isize)) {
-        let dx = (b.0 - a.0).abs();
-        let dy = -(b.1 - a.1).abs();
+    fn draw_line(&mut self, a: Vec3, b: Vec3) {
+        let dx = (b.x - a.x).abs();
+        let dy = -(b.y - a.y).abs();
 
         let sx = {
-            if a.0 < b.0 {
-                1
+            if a.x < b.x {
+                1.0
             } else {
-                -1
+                -1.0
             }
         };
         let sy = {
-            if a.1 < b.1 {
-                1
+            if a.y < b.y {
+                1.0
             } else {
-                -1
+                -1.0
             }
         };
         let mut err = dx + dy;
 
-        let mut x = a.0;
-        let mut y = a.1;
+        let mut x = a.x;
+        let mut y = a.y;
 
         loop {
-            if x > 0 && y > 0 {
-                self.draw_pixel((x as usize, y as usize), WHITE);
+            if x > 0.0 && y > 0.0 {
+                // Wireframes ignore the depth buffer
+                self.draw_pixel(Vec3::new(x, y, -100.0), BLUE);
             }
 
-            if x == b.0 && y == b.1 {
+            if x == b.x && y == b.y {
                 break;
             }
-            let err2 = err * 2;
+            let err2 = err * 2.0;
             if err2 >= dy {
-                if x == b.0 {
+                if x == b.x {
                     break;
                 }
                 err = err + dy;
                 x = x + sx;
             }
             if err2 <= dx {
-                if y == b.1 {
+                if y == b.y {
                     break;
                 }
                 err = err + dx;
@@ -124,21 +158,65 @@ impl Renderer {
         }
     }
 
-    pub fn draw_pixel(&mut self, pos: (usize, usize), col: u32) {
-        if pos.0 > self.width - 1 {
+    pub fn draw_pixel(&mut self, pixel: Vec3, col: u32) {
+        if pixel.x as usize > self.width - 1 {
             return;
         }
-        if pos.1 > self.height - 1 {
+        if pixel.y as usize > self.height - 1 {
             return;
         }
 
-        let i = (self.width * pos.1) + pos.0;
+        let i = (self.width * pixel.y as usize) + pixel.x as usize;
         if i < self.buffer.len() {
-            self.buffer[i] = col;
+            if pixel.z > self.depth_buffer[i] {
+                self.buffer[i] = col;
+                self.depth_buffer[i] = pixel.z;
+            }
+        } else {
         }
     }
 
     pub fn clear(&mut self) {
         self.buffer = vec![BLACK; self.width * self.height];
+        self.depth_buffer = vec![-MAX_Z; self.width * self.height];
+    }
+}
+
+fn min3(a: f64, b: f64, c: f64) -> isize {
+    min(a as isize, min(b as isize, c as isize))
+}
+
+fn max3(a: f64, b: f64, c: f64) -> isize {
+    max(a as isize, max(b as isize, c as isize))
+}
+
+/**
+Performs a check to see if a point is inside a triangle.
+
+Maths found here: http://totologic.blogspot.com/2014/01/accurate-point-in-triangle-test.html
+ */
+fn point_in_triangle(pt: Vec3, a: Vec3, b: Vec3, c: Vec3) -> bool {
+    fn sign(a: Vec3, b: Vec3, c: Vec3) -> f64 {
+        ((a.x - c.x) * (b.y - c.y) - (b.x - c.x) * (a.y - c.y)) as f64
+    }
+    let d1 = sign(pt, a, b);
+    let d2 = sign(pt, b, c);
+    let d3 = sign(pt, c, a);
+    let has_neg = (d1 < 0.0) || (d2 < 0.0) || (d3 < 0.0);
+    let has_pos = (d1 > 0.0) || (d2 > 0.0) || (d3 > 0.0);
+    !(has_neg && has_pos)
+}
+
+fn to_barycentric(a: Vec3, b: Vec3, c: Vec3) {}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn min3_is_accurate() {
+        let expected: isize = 2;
+        let result = min3(2.0, 3.0, 4.0);
+        assert_eq!(expected, result);
     }
 }

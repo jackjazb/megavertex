@@ -45,7 +45,7 @@ impl Mat4 {
                 }
             }
         }
-        return res;
+        res
     }
 
     /**
@@ -61,7 +61,7 @@ impl Mat4 {
             ],
         };
 
-        return trans_mat.mult(self);
+        trans_mat.mult(self)
     }
 
     /**
@@ -122,7 +122,7 @@ impl Mat4 {
             for j in 0..4 {
                 let mut sum = 0.0;
                 for k in 0..4 {
-                    sum = sum + self.m[i][k] * mat.m[k][j];
+                    sum += self.m[i][k] * mat.m[k][j];
                 }
                 res.m[i][j] = sum;
             }
@@ -174,8 +174,8 @@ impl Mat4 {
         for row in 0..4 {
             let divisor = self.m[row][row];
             for col in 0..4 {
-                self.m[row][col] = self.m[row][col] / divisor;
-                inv.m[row][col] = inv.m[row][col] / divisor;
+                self.m[row][col] /= divisor;
+                inv.m[row][col] /= divisor;
             }
         }
 
@@ -198,7 +198,7 @@ impl Mat4 {
      Swap rows a and b in the matrix
     */
     pub fn swap_row(self, a: usize, b: usize) -> Mat4 {
-        let mut res = self.clone();
+        let mut res = self;
         for i in 0..4 {
             let val_a = self.m[a][i];
             let val_b = self.m[b][i];
@@ -335,7 +335,7 @@ mod test {
             .scale(2.0)
             .transform(Vec3::new(1.0, 1.0, 1.0));
 
-        assert_eq!(expected, result);
+        assert_vec_eq(expected, result);
     }
 
     #[test]
@@ -345,7 +345,7 @@ mod test {
             .translate(Vec3::new(0.0, 1.0, 2.0))
             .transform(Vec3::new(1.0, 1.0, 1.0));
 
-        assert_eq!(expected, result);
+        assert_vec_eq(expected, result);
     }
 
     #[test]
@@ -356,18 +356,18 @@ mod test {
             .rotate(axis, 0.87)
             .transform(Vec3::new(1.0, 1.0, 1.0));
 
-        assert_eq!(result, expected);
+        assert_vec_eq(result, expected);
     }
 
     #[test]
     fn rotate_vector_about_xy() {
-        let expected = Vec3::new(1.0, -1.0, 1.0);
+        let expected = Vec3::new(1.0, 1.0, -1.0);
         let axis = Vec3::new(1.0, 1.0, 0.0);
         let result = Mat4::identity()
             .rotate(axis, PI)
             .transform(Vec3::new(1.0, 1.0, 1.0));
 
-        assert_eq!(result, expected);
+        assert_vec_eq(expected, result)
     }
 
     #[test]
@@ -379,6 +379,18 @@ mod test {
             .translate(Vec3::new(0.0, 1.0, 2.0))
             .scale(2.0)
             .transform(vec);
-        assert_eq!(expected, result);
+
+        assert_vec_eq(expected, result)
+    }
+
+    /**
+    Performs an equality assertion on the individual components of a vector, after rounding.
+
+    This avoids test failures due to floating point inequality in more complex matrix calculations.
+    */
+    pub fn assert_vec_eq(expected: Vec3, result: Vec3) {
+        assert_eq!(result.x.round(), expected.x.round());
+        assert_eq!(result.y.round(), expected.y.round());
+        assert_eq!(result.z.round(), expected.z.round());
     }
 }

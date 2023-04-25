@@ -13,7 +13,36 @@ impl World {
     Adds an object to the world at a given location
     */
     pub fn add_object(&mut self, mut obj: Object, pos: Vec3) {
-        obj.transformation = Mat4::identity().translate(pos);
+        obj.transform(Mat4::identity().translate(pos));
         self.objects.push(obj);
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    use crate::{
+        mat4::Mat4,
+        object::{Object, Texture},
+        vec3::ORIGIN,
+    };
+
+    #[test]
+    fn add_object() {
+        let mut world = World::new();
+        let object = Object {
+            transformation: Mat4::identity(),
+            vertices: vec![],
+            faces: vec![],
+            tex_coords: vec![],
+            texture: Texture {
+                width: 0,
+                height: 0,
+                pixels: vec![],
+            },
+        };
+        world.add_object(object, ORIGIN);
+        assert_eq!(world.objects.len(), 1);
     }
 }

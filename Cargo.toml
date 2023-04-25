@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 minifb = "0.24.0"
 fontdue = "0.7.2"
+png = "0.17.8"
