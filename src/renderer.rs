@@ -75,15 +75,24 @@ impl Renderer {
             raster_points.push(Vec3::new(centred.x, centred.y, vec.z));
         }
 
-        // Compute the triangle's boundaries on the screen
-        let x_min = min3(raster_points[0].x, raster_points[1].x, raster_points[2].x);
-        let x_max = max3(raster_points[0].x, raster_points[1].x, raster_points[2].x);
+        // Compute the triangle's boundaries on the screen, and clamp these within the buffer
+        let x_min = max(
+            0,
+            min3(raster_points[0].x, raster_points[1].x, raster_points[2].x),
+        );
+        let x_max = min(
+            self.width as isize,
+            max3(raster_points[0].x, raster_points[1].x, raster_points[2].x),
+        );
 
-        let y_min = min3(raster_points[0].y, raster_points[1].y, raster_points[2].y);
-        let y_max = max3(raster_points[0].y, raster_points[1].y, raster_points[2].y);
-
-        // TODO: This currently computes the average Z coord of all points in the triangle - it would be better to do this on a per pixel basis
-        let plane_z = (raster_points[0].z + raster_points[1].z + raster_points[2].z) / 3.0;
+        let y_min = max(
+            0,
+            min3(raster_points[0].y, raster_points[1].y, raster_points[2].y),
+        );
+        let y_max = min(
+            self.height as isize,
+            max3(raster_points[0].y, raster_points[1].y, raster_points[2].y),
+        );
 
         for x in x_min..x_max {
             for y in y_min..y_max {
@@ -200,22 +209,6 @@ fn min3(a: f64, b: f64, c: f64) -> isize {
 
 fn max3(a: f64, b: f64, c: f64) -> isize {
     max(a as isize, max(b as isize, c as isize))
-}
-
-/// Performs a check to see if a point is inside a triangle.
-///
-/// Maths found here: http://totologic.blogspot.com/2014/01/accurate-point-in-triangle-test.html
-///
-fn point_in_triangle(point: Vec2, a: Vec2, b: Vec2, c: Vec2) -> bool {
-    fn sign(a: Vec2, b: Vec2, c: Vec2) -> f64 {
-        ((a.x - c.x) * (b.y - c.y) - (b.x - c.x) * (a.y - c.y)) as f64
-    }
-    let d1 = sign(point, a, b);
-    let d2 = sign(point, b, c);
-    let d3 = sign(point, c, a);
-    let has_neg = (d1 < 0.0) || (d2 < 0.0) || (d3 < 0.0);
-    let has_pos = (d1 > 0.0) || (d2 > 0.0) || (d3 > 0.0);
-    !(has_neg && has_pos)
 }
 
 /// Analogous to a `Vec3`, but easier to understand this way.
