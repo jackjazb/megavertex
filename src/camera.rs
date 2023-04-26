@@ -8,11 +8,11 @@ use crate::{
     Vec3,
 };
 
-/**
-Draws a world object
-
-The camera looks down the negative Z axis.
- */
+///
+/// Draws a world object
+///
+/// The camera looks down the negative Z axis.
+///
 #[derive(Copy, Clone)]
 pub struct Camera {
     pos: Vec3,
@@ -23,9 +23,9 @@ pub struct Camera {
 }
 
 impl Camera {
-    /**
-    Creates a new Camera at the given position. The camera looks down the negative Z axis by default.
-     */
+    ///
+    /// Creates a new Camera at the given position. The camera looks down the negative Z axis by default.
+    ///
     pub fn new(pos: Vec3) -> Camera {
         let mut cam = Camera {
             pos,
@@ -38,9 +38,9 @@ impl Camera {
         cam
     }
 
-    /**
-    Recalculates the camera's 'right' and 'up' directions based on the current direction
-    */
+    ///
+    /// Recalculates the camera's 'right' and 'up' directions based on the current direction
+    ///
     fn recalc_vectors(&mut self) {
         self.forward.x = self.rot.y.cos() * self.rot.x.cos();
         self.forward.y = self.rot.x.sin();
@@ -52,9 +52,9 @@ impl Camera {
         self.up = self.forward.cross_product(self.right).normalise();
     }
 
-    /**
-    Generates a matrix to transform vectors into camera space
-    */
+    ///
+    /// Generates a matrix to transform vectors into camera space
+    ///
     pub fn look_at(self) -> Mat4 {
         let rotation = Mat4 {
             m: [
@@ -69,9 +69,9 @@ impl Camera {
         rotation.mult(translation)
     }
 
-    /**
-     * Translate the camera by X and Z on its current plane, based on the direction and right vectors.
-     */
+    ///
+    /// Translate the camera by X and Z on its current plane, based on the direction and right vectors.
+    ///
     pub fn translate(&mut self, x: f64, z: f64) {
         // Construct a translation by removing the Y component of the camera's direction and normalising the result
         let mut translation = self.forward;
@@ -83,13 +83,13 @@ impl Camera {
         self.pos = self.pos + self.right.scale(z);
     }
 
-    /**
-    Rotate about each axis by X,Y and Z radians respectively.
-
-    Note that:
-    * X is 'Pitch'
-    * Y is 'Yaw'
-    */
+    ///
+    /// Rotate about each axis by X,Y and Z radians respectively.
+    ///
+    /// Note that:
+    /// - X is 'Pitch'
+    /// - Y is 'Yaw'
+    ///
     pub fn rotate(&mut self, offset: Vec3) {
         self.rot = self.rot + offset;
 
@@ -103,14 +103,14 @@ impl Camera {
         self.recalc_vectors();
     }
 
-    /**
-    Renders each object in the world.
-    */
-    pub fn render_world(self, renderer: &mut Renderer, world: &World) {
+    ///
+    /// Renders each object in the world.
+    ///
+    pub fn render_world(self, renderer: &mut Renderer, world: &World, val: f64) {
         for object in &world.objects {
             for face in &object.faces {
                 let face_vertex_indices = face.vertices;
-                let world_vertices = vec![
+                let face_vertices = vec![
                     object.vertices[face_vertex_indices.0],
                     object.vertices[face_vertex_indices.1],
                     object.vertices[face_vertex_indices.2],
@@ -118,17 +118,24 @@ impl Camera {
 
                 let mut screen_vertices = vec![];
 
-                for point in world_vertices {
+                for point in face_vertices {
+                    //TODO remove this
+                    let rotated = Mat4::identity()
+                        .rotate(Vec3::new(0.0, 1.0, 0.0), 0.05 * val)
+                        .transform(point);
+
                     // Transform each vertex to world space
                     let rel_to_world = Mat4::identity()
                         .mult(object.transformation)
-                        .transform(point);
+                        .transform(rotated);
+
                     // Transform the point to camera space
                     let rel_to_camera = self.look_at().transform(rel_to_world);
                     let mut projected = rel_to_camera;
                     let z = projected.z;
                     projected = projected.scale(1.0 / rel_to_camera.z);
                     projected.z = z;
+
                     screen_vertices.push(projected);
                 }
 

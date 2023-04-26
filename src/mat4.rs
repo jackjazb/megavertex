@@ -64,11 +64,11 @@ impl Mat4 {
         trans_mat.mult(self)
     }
 
-    /**
-    Computes a matrix with which to rotate a vector.
-
-    Rotation matrix found at https://en.wikipedia.org/wiki/Rotation_matrix#Rotation_matrix_from_axis_and_angle.
-    */
+    ///
+    /// Computes a matrix with which to rotate a vector.
+    ///
+    /// Rotation matrix found at https://en.wikipedia.org/wiki/Rotation_matrix#Rotation_matrix_from_axis_and_angle.
+    ///
     pub fn rotate(self, mut axis: Vec3, theta: f64) -> Mat4 {
         axis = axis.normalise();
         let (x, y, z) = (axis.x, axis.y, axis.z);
@@ -113,9 +113,9 @@ impl Mat4 {
         rotation.mult(self)
     }
 
-    /**
-    Multiply this by another 4x4 matrix.
-    */
+    ///
+    ///Multiply this by another 4x4 matrix.
+    ///
     pub fn mult(self, mat: Mat4) -> Mat4 {
         let mut res = Mat4::identity();
         for i in 0..4 {
@@ -130,11 +130,11 @@ impl Mat4 {
         res
     }
 
-    /**
-    Computes the inverse of this matrix.
-
-    Adapted from https://www.scratchapixel.com/lessons/mathematics-physics-for-computer-graphics/matrix-inverse/matrix-inverse.html
-    */
+    ///
+    /// Computes the inverse of this matrix.
+    ///
+    /// Adapted from https://www.scratchapixel.com/lessons/mathematics-physics-for-computer-graphics/matrix-inverse/matrix-inverse.html
+    ///
     pub fn inverse(mut self) -> Mat4 {
         let mut inv = Mat4::identity();
 
@@ -194,9 +194,9 @@ impl Mat4 {
         inv
     }
 
-    /**
-     Swap rows a and b in the matrix
-    */
+    ///
+    /// Swap rows a and b in the matrix
+    ///
     pub fn swap_row(self, a: usize, b: usize) -> Mat4 {
         let mut res = self;
         for i in 0..4 {
@@ -209,9 +209,9 @@ impl Mat4 {
         res
     }
 
-    /**
-    Apply this matrix as a transformation to a vector.
-    */
+    ///
+    /// Apply this matrix as a transformation to a vector.
+    ///
     pub fn transform(self, vec: Vec3) -> Vec3 {
         let vec4 = [vec.x, vec.y, vec.z, 1.0];
         let mut product = [0.0, 0.0, 0.0, 0.0];
@@ -383,11 +383,10 @@ mod test {
         assert_vec_eq(expected, result)
     }
 
-    /**
-    Performs an equality assertion on the individual components of a vector, after rounding.
-
-    This avoids test failures due to floating point inequality in more complex matrix calculations.
-    */
+    ///
+    /// Performs an equality assertion on the individual components of a vector, after rounding.
+    /// This avoids test failures due to floating point inequality in more complex matrix calculations.
+    ///
     pub fn assert_vec_eq(expected: Vec3, result: Vec3) {
         assert_eq!(result.x.round(), expected.x.round());
         assert_eq!(result.y.round(), expected.y.round());

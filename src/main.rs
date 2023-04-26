@@ -7,7 +7,6 @@ mod vec2;
 mod vec3;
 mod world;
 
-use mat4::Mat4;
 use minifb::{Key, Scale, ScaleMode, Window, WindowOptions};
 use std::{error::Error, time::SystemTime};
 use vec2::Vec2;
@@ -15,7 +14,7 @@ use vec2::Vec2;
 use camera::Camera;
 use object::Object;
 use renderer::Renderer;
-use vec3::{Vec3, Y_AXIS};
+use vec3::Vec3;
 use world::World;
 
 // Window/renderer parameters
@@ -49,13 +48,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut camera = Camera::new(Vec3::new(0.0, 0.0, 20.0));
     let mut world = World::new();
 
-    //let cow = Object::from_obj("./resources/cow.obj").expect("Failed to load object.");
+    // let cow = Object::from_obj("./resources/cow").expect("Failed to load object.");
     let cube = Object::from_obj("./resources/cube").expect("Failed to load object.");
 
     //world.add_object(cow, Vec3::new(0.0, 0.0, 30.0));
     world.add_object(cube, Vec3::new(4.0, 0.0, 0.0));
 
-    let mut fcount = 0;
+    // A delta scaled counter value
+    let mut counter = 0.0;
 
     // Keep track of delta time for animation smoothing
     let mut start = SystemTime::now();
@@ -64,11 +64,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Main loop
     while window.is_open() && !window.is_key_down(Key::Escape) {
-        fcount = fcount + 1;
-
         // Update timing values
         delta = (end.duration_since(start)?.as_millis() as f64) / 30.0;
         start = SystemTime::now();
+
+        counter = counter + 1.0 * delta;
 
         renderer.clear();
 
@@ -101,14 +101,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             camera.rotate(Vec3::new(0.0, -LOOK_SPEED, 0.0).scale(delta));
         }
 
-        renderer.write_text("text test", Vec2::new(10.0, 10.0));
+        renderer.write_text("megavertex", Vec2::new(10.0, 10.0));
 
-        // Add some movement to the world
-        let per_frame_transform = Mat4::identity()
-            .rotate(Y_AXIS, fcount as f64 / 2.0)
-            .scale(2.0);
-
-        camera.render_world(&mut renderer, &world);
+        camera.render_world(&mut renderer, &world, counter);
 
         window.update_with_buffer(&renderer.buffer, WIDTH, HEIGHT)?;
 

@@ -7,9 +7,9 @@ use fontdue::Font;
 
 use crate::{object::Texture, vec2::Vec2, Vec3};
 
-const BLACK: u32 = 0x000000;
-const WHITE: u32 = 0xffffff;
-const BLUE: u32 = 0x0000aa;
+const _BLACK: u32 = 0x000000;
+const _WHITE: u32 = 0xffffff;
+const _BLUE: u32 = 0x0000aa;
 
 const MAX_Z: f64 = 1000.0;
 
@@ -60,8 +60,6 @@ impl Renderer {
     }
     // Draws a triangle from an array of 3 points.
     pub fn draw_triangle(&mut self, vertices: Vec<Vec3>, texture: &Texture, tex_coords: Vec<Vec2>) {
-        let col = WHITE;
-
         // Contains the rasterized points to be drawn
         let mut raster_points: Vec<Vec3> = vec![];
 
@@ -69,7 +67,7 @@ impl Renderer {
             if vec.z >= 0.0 {
                 return;
             }
-            // Scale the point up to raster space
+            // Scale the point up to raster space. Z is left alone, as it is only used by the depth buffer
             let scaled = vec.scale(self.width as f64);
             let scr_centre = Vec3::new(self.width as f64 / 2.0, self.height as f64 / 2.0, 0.0);
             let centred = scaled + scr_centre;
@@ -77,7 +75,7 @@ impl Renderer {
             raster_points.push(Vec3::new(centred.x, centred.y, vec.z));
         }
 
-        // Compute the triangle's boundaries
+        // Compute the triangle's boundaries on the screen
         let x_min = min3(raster_points[0].x, raster_points[1].x, raster_points[2].x);
         let x_max = max3(raster_points[0].x, raster_points[1].x, raster_points[2].x);
 
@@ -86,15 +84,28 @@ impl Renderer {
 
         // TODO: This currently computes the average Z coord of all points in the triangle - it would be better to do this on a per pixel basis
         let plane_z = (raster_points[0].z + raster_points[1].z + raster_points[2].z) / 3.0;
+
         for x in x_min..x_max {
             for y in y_min..y_max {
-                if point_in_triangle(
-                    Vec3::new(x as f64, y as f64, 0.0),
-                    raster_points[0],
-                    raster_points[1],
-                    raster_points[2],
-                ) {
-                    self.draw_pixel(Vec3::new(x as f64, y as f64, plane_z), col as u32);
+                let point = Vec2::new(x as f64, y as f64);
+                let a: Vec2 = raster_points[0].into();
+                let b: Vec2 = raster_points[1].into();
+                let c: Vec2 = raster_points[2].into();
+
+                let bary = get_barycentric(a, b, c, point);
+
+                if bary.u >= 0.0 && bary.v >= 0.0 && bary.w >= 0.0 {
+                    let point_xyz = raster_points[0].scale(bary.u)
+                        + raster_points[1].scale(bary.v)
+                        + raster_points[2].scale(bary.w);
+
+                    let tex_xy = tex_coords[0]
+                        + tex_coords[0].scale(bary.u)
+                        + tex_coords[1].scale(bary.v)
+                        + tex_coords[2].scale(bary.w);
+
+                    let col = texture.sample(tex_xy);
+                    self.draw_pixel(Vec3::new(x as f64, y as f64, point_xyz.z), col as u32);
                 }
             }
         }
@@ -134,7 +145,7 @@ impl Renderer {
         loop {
             if x > 0.0 && y > 0.0 {
                 // Wireframes ignore the depth buffer
-                self.draw_pixel(Vec3::new(x, y, -100.0), BLUE);
+                self.draw_pixel(Vec3::new(x, y, -100.0), _BLUE);
             }
 
             if x == b.x && y == b.y {
@@ -177,11 +188,12 @@ impl Renderer {
     }
 
     pub fn clear(&mut self) {
-        self.buffer = vec![BLACK; self.width * self.height];
+        self.buffer = vec![_BLACK; self.width * self.height];
         self.depth_buffer = vec![-MAX_Z; self.width * self.height];
     }
 }
 
+// Note that these functions discard the decimal components of the passed on floats
 fn min3(a: f64, b: f64, c: f64) -> isize {
     min(a as isize, min(b as isize, c as isize))
 }
@@ -190,24 +202,52 @@ fn max3(a: f64, b: f64, c: f64) -> isize {
     max(a as isize, max(b as isize, c as isize))
 }
 
-/**
-Performs a check to see if a point is inside a triangle.
-
-Maths found here: http://totologic.blogspot.com/2014/01/accurate-point-in-triangle-test.html
- */
-fn point_in_triangle(pt: Vec3, a: Vec3, b: Vec3, c: Vec3) -> bool {
-    fn sign(a: Vec3, b: Vec3, c: Vec3) -> f64 {
+/// Performs a check to see if a point is inside a triangle.
+///
+/// Maths found here: http://totologic.blogspot.com/2014/01/accurate-point-in-triangle-test.html
+///
+fn point_in_triangle(point: Vec2, a: Vec2, b: Vec2, c: Vec2) -> bool {
+    fn sign(a: Vec2, b: Vec2, c: Vec2) -> f64 {
         ((a.x - c.x) * (b.y - c.y) - (b.x - c.x) * (a.y - c.y)) as f64
     }
-    let d1 = sign(pt, a, b);
-    let d2 = sign(pt, b, c);
-    let d3 = sign(pt, c, a);
+    let d1 = sign(point, a, b);
+    let d2 = sign(point, b, c);
+    let d3 = sign(point, c, a);
     let has_neg = (d1 < 0.0) || (d2 < 0.0) || (d3 < 0.0);
     let has_pos = (d1 > 0.0) || (d2 > 0.0) || (d3 > 0.0);
     !(has_neg && has_pos)
 }
 
-fn to_barycentric(a: Vec3, b: Vec3, c: Vec3) {}
+/// Analogous to a `Vec3`, but easier to understand this way.
+///
+/// Also, there's no need to include all of `Vec3`'s implementation.
+#[derive(Debug, PartialEq)]
+struct Barycentric {
+    u: f64,
+    v: f64,
+    w: f64,
+}
+///
+/// Computes the barycentric coordinates of `p` w.r.t triangle `a, b, c`
+///
+fn get_barycentric(a: Vec2, b: Vec2, c: Vec2, p: Vec2) -> Barycentric {
+    let ab = b - a;
+    let ac = c - a;
+    let ap = p - a;
+
+    let d00 = ab.dot(ab);
+    let d01 = ab.dot(ac);
+    let d11 = ac.dot(ac);
+    let d20 = ap.dot(ab);
+    let d21 = ap.dot(ac);
+
+    let denom = d00 * d11 - d01 * d01;
+    let v = (d11 * d20 - d01 * d21) / denom;
+    let w = (d00 * d21 - d01 * d20) / denom;
+    let u = 1.0 - v - w;
+
+    Barycentric { u, v, w }
+}
 
 #[cfg(test)]
 mod test {
@@ -217,6 +257,21 @@ mod test {
     fn min3_is_accurate() {
         let expected: isize = 2;
         let result = min3(2.0, 3.0, 4.0);
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn barycentric() {
+        let expected = Barycentric {
+            u: 0.5,
+            v: 0.5,
+            w: 0.0,
+        };
+        let a = Vec2::new(0.0, 0.0);
+        let b = Vec2::new(1.0, 1.0);
+        let c = Vec2::new(1.0, 0.0);
+        let p = Vec2::new(0.5, 0.25);
+        let result = get_barycentric(a, b, c, p);
         assert_eq!(expected, result);
     }
 }
