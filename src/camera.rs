@@ -106,7 +106,7 @@ impl Camera {
     ///
     /// Renders each object in the world.
     ///
-    pub fn render_world(self, renderer: &mut Renderer, world: &World, val: f64) {
+    pub fn render_world(self, renderer: &mut Renderer, world: &World, time: f64) {
         for object in &world.objects {
             for face in &object.faces {
                 let face_vertex_indices = face.vertices;
@@ -118,25 +118,27 @@ impl Camera {
 
                 let mut screen_vertices = vec![];
 
-                for point in face_vertices {
-                    //TODO remove this
-                    let rotated = Mat4::identity()
-                        .rotate(Vec3::new(0.0, 1.0, 0.0), 0.05 * val)
+                for mut point in face_vertices {
+                    point = Mat4::identity()
+                        .rotate(Vec3::new(0.0, 1.0, 0.0), 0.05 * time)
+                        .transform(point); // remove when rotation no longer wanted
+
+                    let y = -1.0 + (time * 0.1).sin().abs() * 5.0;
+                    point = Mat4::identity()
+                        .translate(Vec3::new(0.0, y, 0.0))
+                        .transform(point);
+                    // Transform each vertex to world space
+                    point = Mat4::identity()
+                        .mult(object.transformation)
                         .transform(point);
 
-                    // Transform each vertex to world space
-                    let rel_to_world = Mat4::identity()
-                        .mult(object.transformation)
-                        .transform(rotated);
-
                     // Transform the point to camera space
-                    let rel_to_camera = self.look_at().transform(rel_to_world);
-                    let mut projected = rel_to_camera;
-                    let z = projected.z;
-                    projected = projected.scale(1.0 / rel_to_camera.z);
-                    projected.z = z;
+                    point = self.look_at().transform(point);
+                    let z = point.z;
+                    point = point.scale(1.0 / point.z);
+                    point.z = z;
 
-                    screen_vertices.push(projected);
+                    screen_vertices.push(point);
                 }
 
                 let tex_coord_indices = face.tex_coords;

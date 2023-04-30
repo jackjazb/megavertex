@@ -48,14 +48,18 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut camera = Camera::new(Vec3::new(0.0, 0.0, 20.0));
     let mut world = World::new();
 
-    // let cow = Object::from_obj("./resources/cow").expect("Failed to load object.");
-    let cube = Object::from_obj("./resources/cube").expect("Failed to load object.");
+    if let Ok(cow) = Object::from_obj("./resources/dairy-cow") {
+        world.add_object(cow.clone(), Vec3::new(0.0, 0.0, 0.0));
+    }
 
-    //world.add_object(cow, Vec3::new(0.0, 0.0, 30.0));
-    world.add_object(cube, Vec3::new(4.0, 0.0, 0.0));
+    if let Ok(cube) = Object::from_obj("./resources/cube") {
+        world.add_object(cube.clone(), Vec3::new(2.0, 0.0, 0.0));
+        world.add_object(cube.clone(), Vec3::new(5.0, 2.0, 0.0));
+        world.add_object(cube.clone(), Vec3::new(8.0, 4.0, 0.0));
+    }
 
-    // A delta scaled counter value
-    let mut counter = 0.0;
+    // A timer that counts up from 0, representing the time within 'world'
+    let mut world_time = 0.0;
 
     // Keep track of delta time for animation smoothing
     let mut start = SystemTime::now();
@@ -68,7 +72,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         delta = (end.duration_since(start)?.as_millis() as f64) / 30.0;
         start = SystemTime::now();
 
-        counter = counter + 1.0 * delta;
+        world_time = world_time + 1.0 * delta;
 
         renderer.clear();
 
@@ -103,7 +107,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         renderer.write_text("megavertex", Vec2::new(10.0, 10.0));
 
-        camera.render_world(&mut renderer, &world, counter);
+        camera.render_world(&mut renderer, &world, world_time);
 
         window.update_with_buffer(&renderer.buffer, WIDTH, HEIGHT)?;
 

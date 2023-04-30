@@ -32,15 +32,16 @@ mod test {
     fn add_object() {
         let mut world = World::new();
         let object = Object {
-            transformation: Mat4::identity(),
             vertices: vec![],
-            faces: vec![],
             tex_coords: vec![],
+            normals: vec![],
+            faces: vec![],
             texture: Texture {
                 width: 0,
                 height: 0,
                 pixels: vec![],
             },
+            transformation: Mat4::identity(),
         };
         world.add_object(object, ORIGIN);
         assert_eq!(world.objects.len(), 1);

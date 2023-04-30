@@ -26,14 +26,17 @@ impl From<ParseIntError> for ModelLoadError {
 ///
 /// Holds data relating to a single face of an object - the tuples refer to lists of indexes
 ///
+#[derive(Clone)]
 pub struct Face {
     pub vertices: (usize, usize, usize),
     pub tex_coords: (usize, usize, usize),
+    pub normals: (usize, usize, usize),
 }
 
 ///
 ///Holds a pixel buffer, along with the dimensions of the image it represents
 ///
+#[derive(Clone)]
 pub struct Texture {
     pub width: usize,
     pub height: usize,
@@ -64,9 +67,11 @@ impl Texture {
 /// - `texture` is a pixel buffer containing a texture for the object
 /// - `transformation` is the transformation applied to this object in world space
 ///
+#[derive(Clone)]
 pub struct Object {
     pub vertices: Vec<Vec3>,
     pub tex_coords: Vec<Vec2>,
+    pub normals: Vec<Vec3>,
     pub faces: Vec<Face>,
     pub texture: Texture,
     pub transformation: Mat4,
@@ -85,6 +90,8 @@ impl Object {
 
         let mut vertices: Vec<Vec3> = vec![];
         let mut tex_coords: Vec<Vec2> = vec![];
+        let mut normals: Vec<Vec3> = vec![];
+
         let mut faces: Vec<Face> = vec![];
 
         for line in obj_str.split("\r\n") {
@@ -99,7 +106,7 @@ impl Object {
                             vec_buffer.push(f)
                         };
                     }
-                    if vec_buffer.len() == 3 {
+                    if vec_buffer.len() >= 3 {
                         vertices.push(Vec3::new(vec_buffer[0], vec_buffer[1], vec_buffer[2]));
                     }
                 }
@@ -111,8 +118,20 @@ impl Object {
                             coord_buffer.push(f)
                         }
                     }
-                    if coord_buffer.len() == 2 {
+                    if coord_buffer.len() >= 2 {
                         tex_coords.push(Vec2::new(coord_buffer[0], coord_buffer[1]));
+                    }
+                }
+                "vn" => {
+                    // As above
+                    let mut coord_buffer: Vec<f64> = vec![];
+                    for token in tokens {
+                        if let Ok(f) = token.parse::<f64>() {
+                            coord_buffer.push(f)
+                        }
+                    }
+                    if coord_buffer.len() >= 3 {
+                        normals.push(Vec3::new(coord_buffer[0], coord_buffer[1], coord_buffer[2]));
                     }
                 }
                 "f" => {
@@ -123,36 +142,44 @@ impl Object {
                     while slice_offset + 2 < tokens.len() {
                         let mut vertices: Vec<usize> = vec![];
                         let mut tex_coords: Vec<usize> = vec![];
+                        let mut normals: Vec<usize> = vec![];
 
                         // Parses three sets of vertex and texture coord from the current offset
                         for i in 0..3 {
                             let line_index = slice_offset + i;
 
-                            let vertex = get_face_data(tokens[line_index], 0)?;
-                            let tex_coord = get_face_data(tokens[line_index], 1)?;
-
-                            vertices.push(vertex);
-                            tex_coords.push(tex_coord);
+                            // .obj file indices start at 1, so make sure to normalise this type to zero indexed
+                            if let Ok(vertex) = get_face_data(tokens[line_index], 0) {
+                                vertices.push(vertex - 1);
+                            }
+                            if let Ok(tex_coord) = get_face_data(tokens[line_index], 1) {
+                                tex_coords.push(tex_coord - 1);
+                            }
+                            if let Ok(normal) = get_face_data(tokens[line_index], 2) {
+                                normals.push(normal - 1);
+                            }
                         }
 
                         let face = Face {
                             vertices: (vertices[0], vertices[1], vertices[2]),
                             tex_coords: (tex_coords[0], tex_coords[1], tex_coords[2]),
+                            normals: (normals[0], normals[1], normals[2]),
                         };
                         faces.push(face);
                         slice_offset += 1;
                     }
                 }
-                &_ => (),
+                _ => (),
             }
         }
 
         Ok(Object {
-            transformation: Mat4::identity(),
             vertices,
             tex_coords,
+            normals,
             faces,
             texture,
+            transformation: Mat4::identity(),
         })
     }
 

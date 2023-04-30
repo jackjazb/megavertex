@@ -131,85 +131,6 @@ impl Mat4 {
     }
 
     ///
-    /// Computes the inverse of this matrix.
-    ///
-    /// Adapted from https://www.scratchapixel.com/lessons/mathematics-physics-for-computer-graphics/matrix-inverse/matrix-inverse.html
-    ///
-    pub fn inverse(mut self) -> Mat4 {
-        let mut inv = Mat4::identity();
-
-        for col in 0..4 {
-            // 1) Remove non-zero diagonals by swapping rows
-            if self.m[col][col] == 0.0 {
-                // If a diagonal of 0.0 is identified:
-                //	- Find the row with the greatest value for this column
-                //	- Swap it with the current row
-                let mut greatest_row = col;
-                for row in 0..4 {
-                    if self.m[row][col].abs() > self.m[greatest_row][col].abs() {
-                        greatest_row = row;
-                    }
-                }
-
-                // Apply the same operations to both matrices
-                self = self.swap_row(col, greatest_row);
-                inv = inv.swap_row(col, greatest_row);
-            }
-        }
-
-        // 2) Make all values underneath the pivot 0
-        for col in 0..4 {
-            for row in (col + 1)..4 {
-                let k = self.m[row][col] / self.m[col][col]; // = current element over column diagonal
-                for j in 0..4 {
-                    self.m[row][j] -= k * self.m[col][j];
-                    inv.m[row][j] -= k * inv.m[col][j];
-                }
-                // Set the element to 0 in case of float errors
-                self.m[row][col] = 0.0;
-            }
-        }
-
-        // 3) Scale pivot to 1
-        for row in 0..4 {
-            let divisor = self.m[row][row];
-            for col in 0..4 {
-                self.m[row][col] /= divisor;
-                inv.m[row][col] /= divisor;
-            }
-        }
-
-        // 4) Make all values above the pivot 0]
-        for row in 0..4 {
-            for col in (row + 1)..4 {
-                let k = self.m[row][col];
-                for j in 0..4 {
-                    self.m[row][j] -= self.m[col][j] * k;
-                    inv.m[row][j] -= inv.m[col][j] * k;
-                }
-                // Set the element to 0 in case of float errors
-                self.m[row][col] = 0.0;
-            }
-        }
-        inv
-    }
-
-    ///
-    /// Swap rows a and b in the matrix
-    ///
-    pub fn swap_row(self, a: usize, b: usize) -> Mat4 {
-        let mut res = self;
-        for i in 0..4 {
-            let val_a = self.m[a][i];
-            let val_b = self.m[b][i];
-
-            res.m[a][i] = val_b;
-            res.m[b][i] = val_a;
-        }
-        res
-    }
-
-    ///
     /// Apply this matrix as a transformation to a vector.
     ///
     pub fn transform(self, vec: Vec3) -> Vec3 {
@@ -254,29 +175,6 @@ mod test {
         };
 
         let result = Mat4::identity();
-        assert_eq!(expected, result);
-    }
-
-    #[test]
-    fn swap_rows() {
-        let expected = Mat4 {
-            m: [
-                [1.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 1.0, 0.0],
-                [0.0, 1.0, 0.0, 0.0],
-                [0.0, 0.0, 0.0, 1.0],
-            ],
-        };
-
-        let result = Mat4::identity().swap_row(1, 2);
-        assert_eq!(expected, result);
-    }
-
-    #[test]
-    fn compute_inverse() {
-        let mat_a = Mat4::identity();
-        let expected = Mat4::identity();
-        let result = mat_a.inverse();
         assert_eq!(expected, result);
     }
 
