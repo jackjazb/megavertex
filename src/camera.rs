@@ -119,14 +119,15 @@ impl Camera {
                 let mut screen_vertices = vec![];
 
                 for mut point in face_vertices {
-                    point = Mat4::identity()
-                        .rotate(Vec3::new(0.0, 1.0, 0.0), 0.05 * time)
-                        .transform(point); // remove when rotation no longer wanted
+                    // point = Mat4::identity()
+                    //     .rotate(Vec3::new(0.0, 1.0, 0.0), 0.05 * time)
+                    //     .transform(point); // remove when rotation no longer wanted
 
-                    let y = -1.0 + (time * 0.1).sin().abs() * 5.0;
-                    point = Mat4::identity()
-                        .translate(Vec3::new(0.0, y, 0.0))
-                        .transform(point);
+                    // let y = -1.0 + (time * 0.1).sin().abs() * 5.0;
+                    // point = Mat4::identity()
+                    //     .translate(Vec3::new(0.0, y, 0.0))
+                    //     .transform(point);
+
                     // Transform each vertex to world space
                     point = Mat4::identity()
                         .mult(object.transformation)

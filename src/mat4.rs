@@ -33,22 +33,6 @@ impl Mat4 {
     }
 
     /**
-    Computes a matrix with which to scale a vector.
-    */
-    pub fn scale(self, n: f64) -> Mat4 {
-        let mut res = Mat4::identity();
-        for i in 0..4 {
-            for j in 0..4 {
-                // Ignore the bottom row
-                if i != 3 {
-                    res.m[i][j] = self.m[i][j] * n;
-                }
-            }
-        }
-        res
-    }
-
-    /**
     Computes a matrix with which to translate a vector.
     */
     pub fn translate(self, vec: Vec3) -> Mat4 {
@@ -227,16 +211,6 @@ mod test {
     }
 
     #[test]
-    fn scale_vector() {
-        let expected = Vec3::new(2.0, 2.0, 2.0);
-        let result = Mat4::identity()
-            .scale(2.0)
-            .transform(Vec3::new(1.0, 1.0, 1.0));
-
-        assert_vec_eq(expected, result);
-    }
-
-    #[test]
     fn translate_vector() {
         let expected = Vec3::new(1.0, 2.0, 3.0);
         let result = Mat4::identity()
@@ -264,19 +238,6 @@ mod test {
         let result = Mat4::identity()
             .rotate(axis, PI)
             .transform(Vec3::new(1.0, 1.0, 1.0));
-
-        assert_vec_eq(expected, result)
-    }
-
-    #[test]
-    fn scale_then_translate_vector() {
-        let expected = Vec3::new(2.0, 4.0, 6.0);
-
-        let vec = Vec3::new(1.0, 1.0, 1.0);
-        let result = Mat4::identity()
-            .translate(Vec3::new(0.0, 1.0, 2.0))
-            .scale(2.0)
-            .transform(vec);
 
         assert_vec_eq(expected, result)
     }

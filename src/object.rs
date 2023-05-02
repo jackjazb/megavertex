@@ -56,7 +56,34 @@ impl Texture {
         }
         self.pixels[i]
     }
+
+    ///
+    /// Loads a PNG texture from a given path into a u32 pixel buffer
+    ///
+    pub fn load_from(path: &str) -> Result<Texture, io::Error> {
+        let decoder = png::Decoder::new(File::open(path)?);
+        let mut reader = decoder.read_info()?;
+        let mut buf = vec![0; reader.output_buffer_size()];
+
+        let info = reader.next_frame(&mut buf).unwrap();
+
+        let bytes = &buf[..info.buffer_size()];
+        let mut pixels: Vec<u32> = vec![];
+
+        for i in (0..bytes.len() - 2).step_by(3) {
+            // Shift some bytes around to get an 32 bit colour value
+            let rgba = (bytes[i] as u32) << 16 | (bytes[i + 1] as u32) << 8 | bytes[i + 2] as u32;
+            pixels.push(rgba);
+        }
+
+        Ok(Texture {
+            width: info.width as usize,
+            height: info.height as usize,
+            pixels,
+        })
+    }
 }
+
 ///
 /// Holds data parsed from a .obj file
 /// - `vertices` are the 3D coordinates that make up the object
@@ -86,7 +113,7 @@ impl Object {
         let obj_path = String::from(name) + ".obj";
         let obj_str = fs::read_to_string(obj_path)?;
         let texture_path = String::from(name) + ".png";
-        let texture = load_texture(&texture_path)?;
+        let texture = Texture::load_from(&texture_path)?;
 
         let mut vertices: Vec<Vec3> = vec![];
         let mut tex_coords: Vec<Vec2> = vec![];
@@ -197,30 +224,4 @@ fn get_face_data(face_string: &str, index: usize) -> Result<usize, ParseIntError
         return slash_split[index].parse::<usize>();
     }
     Ok(0)
-}
-
-///
-/// Loads a PNG texture file into a u32 pixel buffer
-///
-fn load_texture(path: &str) -> Result<Texture, io::Error> {
-    let decoder = png::Decoder::new(File::open(path)?);
-    let mut reader = decoder.read_info()?;
-    let mut buf = vec![0; reader.output_buffer_size()];
-
-    let info = reader.next_frame(&mut buf).unwrap();
-
-    let bytes = &buf[..info.buffer_size()];
-    let mut pixels: Vec<u32> = vec![];
-
-    for i in (0..bytes.len() - 2).step_by(3) {
-        // Shift some bytes around to get an 32 bit colour value
-        let rgba = (bytes[i] as u32) << 16 | (bytes[i + 1] as u32) << 8 | bytes[i + 2] as u32;
-        pixels.push(rgba);
-    }
-
-    Ok(Texture {
-        width: info.width as usize,
-        height: info.height as usize,
-        pixels,
-    })
 }
