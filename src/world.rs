@@ -1,4 +1,4 @@
-use crate::{mat4::Mat4, vec3::Vec3, Object};
+use crate::{mat4::Mat4, object::Object, vec::vec3::Vec3};
 
 pub struct World {
     pub objects: Vec<Object>,
@@ -25,7 +25,7 @@ mod test {
     use crate::{
         mat4::Mat4,
         object::{Object, Texture},
-        vec3::ORIGIN,
+        vec::vec3::ORIGIN,
     };
 
     #[test]

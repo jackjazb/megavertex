@@ -1,26 +1,18 @@
-// Module imports
-mod camera;
-mod mat4;
-mod object;
-mod renderer;
-mod vec2;
-mod vec3;
-mod world;
-
-use mat4::Mat4;
+use megavertex::mat4::Mat4;
+use megavertex::object::texture::Texture;
+use megavertex::vec::vec2::Vec2;
 use minifb::{Key, Scale, ScaleMode, Window, WindowOptions};
 use std::{error::Error, time::SystemTime};
-use vec2::Vec2;
 
-use camera::Camera;
-use object::{Face, Object, Texture};
-use renderer::Renderer;
-use vec3::{Vec3, ORIGIN};
-use world::World;
+use megavertex::camera::Camera;
+use megavertex::object::{Face, Object};
+use megavertex::renderer::Renderer;
+use megavertex::vec::vec3::Vec3;
+use megavertex::world::World;
 
 // Window/renderer parameters
-const WIDTH: usize = 300;
-const HEIGHT: usize = 200;
+const WIDTH: usize = 600;
+const HEIGHT: usize = 400;
 
 // Movement parameters
 const SPEED: f64 = 0.5;
@@ -37,7 +29,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             transparency: false,
             title: true,
             resize: false,
-            scale: Scale::X2,
+            scale: Scale::X1,
             scale_mode: ScaleMode::Stretch,
             topmost: false,
             none: false,
@@ -49,6 +41,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut camera = Camera::new(Vec3::new(0.0, -1.0, 20.0));
     let mut world = World::new();
 
+    // Add models here:
     if let Ok(cow) = Object::from_obj("./resources/dairy-cow") {
         world.add_object(cow.clone(), Vec3::new(0.0, 0.0, 0.0));
     }
@@ -109,7 +102,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             camera.rotate(Vec3::new(0.0, -LOOK_SPEED, 0.0).scale(delta));
         }
 
-        renderer.write_text("megavertex", Vec2::new(10.0, 10.0));
+        renderer.write_text("megavertex", Vec2::new(5.0, 5.0), 24.0);
 
         camera.render_world(&mut renderer, &world, world_time);
 

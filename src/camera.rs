@@ -3,9 +3,8 @@ use std::f64::consts::PI;
 use crate::{
     mat4::Mat4,
     renderer::Renderer,
-    vec3::{ORIGIN, X_AXIS, Y_AXIS},
+    vec::vec3::{Vec3, ORIGIN, X_AXIS, Y_AXIS},
     world::World,
-    Vec3,
 };
 
 ///

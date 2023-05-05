@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Display};
 
-use crate::Vec3;
+use crate::vec::vec3::Vec3;
 
 /**
 An implementation of a 4x4 matrix. It can be used to apply transformations to vectors.

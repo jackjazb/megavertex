@@ -5,7 +5,7 @@ use std::{
 
 use fontdue::Font;
 
-use crate::{object::Texture, vec2::Vec2, Vec3};
+use crate::{object::Texture, vec::vec2::Vec2, vec::vec3::Vec3};
 
 const _BLACK: u32 = 0x000000;
 const _WHITE: u32 = 0xffffff;
@@ -16,22 +16,32 @@ const MAX_Z: f64 = 1000.0;
 const WIREFRAME: bool = false;
 
 pub struct Renderer {
+    // Screen dimensions
     width: usize,
     height: usize,
+    centre: Vec3,
+
+    // Pixel and depth buffer
     pub buffer: Vec<u32>,
-    depth_buffer: Vec<f64>,
+    depth_buffer: Vec<Vec<f64>>,
+
+    // Font rendering
     font: Font,
 }
 
 impl Renderer {
     pub fn new(width: usize, height: usize) -> Self {
         // Read the font data and parse it into the font type
-        let font = include_bytes!("../resources/liberation-mono.ttf") as &[u8];
-        let font = fontdue::Font::from_bytes(font, fontdue::FontSettings::default()).unwrap();
+        let font_bytes = include_bytes!("../resources/liberation-mono.ttf") as &[u8];
+        let font = fontdue::Font::from_bytes(font_bytes, fontdue::FontSettings::default()).unwrap();
+
+        // Precalculate the centre of the screen
+        let centre = Vec3::new((width as f64) / 2.0, (height as f64) / 2.0, 0.0);
 
         let mut renderer = Renderer {
             width,
             height,
+            centre,
             buffer: vec![],
             depth_buffer: vec![],
             font,
@@ -40,42 +50,46 @@ impl Renderer {
         return renderer;
     }
 
-    pub fn write_text(&mut self, text: &str, pos: Vec2) {
+    pub fn write_text(&mut self, text: &str, pos: Vec2, size: f32) {
         let mut x_offset = pos.x;
-        for char in text.chars() {
-            // Rasterize and get the layout metrics for the letter 'g' at 17px.
-            let (metrics, bitmap) = self.font.rasterize(char, 11.0);
 
-            for y in 0..metrics.height {
-                for x in 0..metrics.width {
-                    let char_s = bitmap[x + y * metrics.width];
-                    self.draw_pixel(
-                        Vec3::new(x as f64 + x_offset, y as f64 + pos.y, 0.0),
-                        char_s as u32,
-                    );
+        if let Some(line_metrics) = self.font.horizontal_line_metrics(size) {
+            for char in text.chars() {
+                let (metrics, bitmap) = self.font.rasterize(char, size);
+                let top_offset =
+                    line_metrics.ascent as f64 - metrics.height as f64 - metrics.ymin as f64;
+
+                for y in 0..metrics.height {
+                    for x in 0..metrics.width {
+                        let char_s = bitmap[x + y * metrics.width];
+                        self.draw_pixel(
+                            Vec3::new(x as f64 + x_offset, y as f64 + pos.y + top_offset, 0.0),
+                            char_s as u32,
+                        );
+                    }
                 }
+                x_offset = x_offset + metrics.advance_width as f64;
             }
-            x_offset = x_offset + metrics.advance_width as f64;
         }
     }
     // Draws a triangle from an array of 3 points.
     pub fn draw_triangle(&mut self, vertices: Vec<Vec3>, texture: &Texture, tex_coords: Vec<Vec2>) {
+        // TODO - potentially faster to use arrays, but need to investigate closures
         // Contains the rasterized points to be drawn
         let mut raster_points: Vec<Vec3> = vec![];
 
+        // Scale the points up to raster space. Z is left alone, as it is only used by the depth buffer
         for vec in vertices {
             if vec.z >= 0.0 {
                 return;
             }
-            // Scale the point up to raster space. Z is left alone, as it is only used by the depth buffer
             let scaled = vec.scale(self.width as f64);
-            let scr_centre = Vec3::new(self.width as f64 / 2.0, self.height as f64 / 2.0, 0.0);
-            let centred = scaled + scr_centre;
+            let centred = scaled + self.centre;
 
             raster_points.push(Vec3::new(centred.x, centred.y, vec.z));
         }
 
-        // Compute the triangle's boundaries on the screen, and clamp these within the buffer
+        // Compute the triangle's rectangular boundaries on the screen, clamped to be within the screen's size
         let x_min = max(
             0,
             min3(raster_points[0].x, raster_points[1].x, raster_points[2].x),
@@ -94,6 +108,11 @@ impl Renderer {
             max3(raster_points[0].y, raster_points[1].y, raster_points[2].y),
         );
 
+        // Stop here if the bounding box is entirely off the screen
+        if x_max < x_min || y_max < y_min {
+            return;
+        }
+
         for x in x_min..x_max {
             for y in y_min..y_max {
                 let point = Vec2::new(x as f64, y as f64);
@@ -104,9 +123,13 @@ impl Renderer {
                 let bary = get_barycentric(a, b, c, point);
 
                 if bary.u >= 0.0 && bary.v >= 0.0 && bary.w >= 0.0 {
-                    let point_xyz = raster_points[0].scale(bary.u)
+                    let point_exact = raster_points[0].scale(bary.u)
                         + raster_points[1].scale(bary.v)
                         + raster_points[2].scale(bary.w);
+
+                    if point_exact.z < self.depth_buffer[y as usize][x as usize] {
+                        continue;
+                    }
 
                     let tex_xy = tex_coords[0]
                         + tex_coords[0].scale(bary.u)
@@ -114,7 +137,7 @@ impl Renderer {
                         + tex_coords[2].scale(bary.w);
 
                     let col = texture.sample(tex_xy);
-                    self.draw_pixel(Vec3::new(x as f64, y as f64, point_xyz.z), col as u32);
+                    self.draw_pixel(Vec3::new(x as f64, y as f64, point_exact.z), col as u32);
                 }
             }
         }
@@ -179,26 +202,17 @@ impl Renderer {
     }
 
     pub fn draw_pixel(&mut self, pixel: Vec3, col: u32) {
-        if pixel.x as usize > self.width - 1 {
-            return;
-        }
-        if pixel.y as usize > self.height - 1 {
-            return;
-        }
+        let ix = pixel.x as usize;
+        let iy = pixel.y as usize;
 
-        let i = (self.width * pixel.y as usize) + pixel.x as usize;
-        if i < self.buffer.len() {
-            if pixel.z > self.depth_buffer[i] {
-                self.buffer[i] = col;
-                self.depth_buffer[i] = pixel.z;
-            }
-        } else {
-        }
+        let i = (self.width * iy) + ix;
+        self.buffer[i] = col;
+        self.depth_buffer[iy][ix] = pixel.z;
     }
 
     pub fn clear(&mut self) {
         self.buffer = vec![_BLACK; self.width * self.height];
-        self.depth_buffer = vec![-MAX_Z; self.width * self.height];
+        self.depth_buffer = vec![vec![-MAX_Z; self.width]; self.height];
     }
 }
 
