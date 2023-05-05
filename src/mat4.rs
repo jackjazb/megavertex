@@ -2,25 +2,25 @@ use std::fmt::{Debug, Display};
 
 use crate::vec::vec3::Vec3;
 
-/**
-An implementation of a 4x4 matrix. It can be used to apply transformations to vectors.
-
-An arbitrary number of transformations can be applied fluently. For example, the following
-applies a scaling, rotation, and translation to a vector in that order:
-
-```
-Mat4::identity().translate(_).rotate(_).scale(_).transform(vector)
-```
-*/
+///
+/// An implementation of a 4x4 matrix. It can be used to apply transformations to vectors.
+///
+/// An arbitrary number of transformations can be applied fluently. For example, the following
+/// applies a scaling, rotation, and translation to a vector in that order:
+///
+/// ```
+/// Mat4::identity().translate(_).rotate(_).transform(vector)
+/// ```
+///
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub struct Mat4 {
     pub m: [[f64; 4]; 4],
 }
 
 impl Mat4 {
-    /**
-    Initialises a new matrix with 1.0 as its diagonals.
-    */
+    ///
+    /// Initialises a new matrix with 1.0 as its diagonals.
+    ///
     pub fn identity() -> Mat4 {
         Mat4 {
             m: [
@@ -32,9 +32,9 @@ impl Mat4 {
         }
     }
 
-    /**
-    Computes a matrix with which to translate a vector.
-    */
+    ///
+    /// Computes a matrix with which to translate a vector.
+    ///
     pub fn translate(self, vec: Vec3) -> Mat4 {
         let trans_mat = Mat4 {
             m: [

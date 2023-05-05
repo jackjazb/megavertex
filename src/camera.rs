@@ -76,10 +76,10 @@ impl Camera {
         let mut translation = self.forward;
         translation.y = 0.0;
         translation = translation.normalise();
-        translation = translation.scale(x);
+        translation = translation * x;
 
         self.pos = self.pos + translation;
-        self.pos = self.pos + self.right.scale(z);
+        self.pos = self.pos + self.right * z;
     }
 
     ///
@@ -105,7 +105,7 @@ impl Camera {
     ///
     /// Renders each object in the world.
     ///
-    pub fn render_world(self, renderer: &mut Renderer, world: &World, time: f64) {
+    pub fn render_world(self, renderer: &mut Renderer, world: &World) {
         for object in &world.objects {
             for face in &object.faces {
                 let face_vertex_indices = face.vertices;
@@ -120,11 +120,6 @@ impl Camera {
                 for mut point in face_vertices {
                     // point = Mat4::identity()
                     //     .rotate(Vec3::new(0.0, 1.0, 0.0), 0.05 * time)
-                    //     .transform(point); // remove when rotation no longer wanted
-
-                    // let y = -1.0 + (time * 0.1).sin().abs() * 5.0;
-                    // point = Mat4::identity()
-                    //     .translate(Vec3::new(0.0, y, 0.0))
                     //     .transform(point);
 
                     // Transform each vertex to world space
@@ -135,7 +130,7 @@ impl Camera {
                     // Transform the point to camera space
                     point = self.look_at().transform(point);
                     let z = point.z;
-                    point = point.scale(1.0 / point.z);
+                    point = point / point.z;
                     point.z = z;
 
                     screen_vertices.push(point);

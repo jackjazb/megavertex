@@ -2,11 +2,15 @@ use crate::{mat4::Mat4, object::Object, vec::vec3::Vec3};
 
 pub struct World {
     pub objects: Vec<Object>,
+    pub time: f64,
 }
 
 impl World {
     pub fn new() -> World {
-        World { objects: vec![] }
+        World {
+            objects: vec![],
+            time: 0.0,
+        }
     }
 
     /**

@@ -1,4 +1,8 @@
-use std::{fmt::Display, ops::Add};
+use std::{
+    fmt::Display,
+    iter::Sum,
+    ops::{Add, Div, Mul},
+};
 
 pub const ORIGIN: Vec3 = Vec3 {
     x: 0.0,
@@ -28,10 +32,6 @@ impl Vec3 {
         Vec3 { x, y, z }
     }
 
-    pub fn scale(self, n: f64) -> Vec3 {
-        Vec3::new(self.x * n, self.y * n, self.z * n)
-    }
-
     pub fn cross_product(self, vec: Vec3) -> Vec3 {
         let x = self.y * vec.z - self.z * vec.y;
         let y = self.z * vec.x - self.x * vec.z;
@@ -41,7 +41,7 @@ impl Vec3 {
 
     pub fn normalise(self) -> Vec3 {
         let length = self.length();
-        self.scale(1.0 / length)
+        self / length
     }
 
     pub fn length(&self) -> f64 {
@@ -58,6 +58,47 @@ impl Add for Vec3 {
             y: self.y + other.y,
             z: self.z + other.z,
         }
+    }
+}
+
+impl Mul<f64> for Vec3 {
+    type Output = Self;
+
+    fn mul(self, rhs: f64) -> Self::Output {
+        Self {
+            x: self.x * rhs,
+            y: self.y * rhs,
+            z: self.z * rhs,
+        }
+    }
+}
+
+impl Div<f64> for Vec3 {
+    type Output = Self;
+
+    fn div(self, rhs: f64) -> Self::Output {
+        Self {
+            x: self.x / rhs,
+            y: self.y / rhs,
+            z: self.z / rhs,
+        }
+    }
+}
+
+impl Sum for Vec3 {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.fold(
+            Self {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            |a, b| Self {
+                x: a.x + b.x,
+                y: a.y + b.y,
+                z: a.z + b.z,
+            },
+        )
     }
 }
 
@@ -92,7 +133,7 @@ mod test {
     fn scale_vector() {
         let expected = Vec3::new(10.0, 10.0, 10.0);
         let initial = Vec3::new(2.0, 2.0, 2.0);
-        let result = initial.scale(5.0);
+        let result = initial * 5.0;
 
         assert_eq!(expected, result);
     }

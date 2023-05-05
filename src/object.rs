@@ -1,8 +1,5 @@
 pub mod texture;
-use crate::{
-    mat4::Mat4,
-    vec::{vec2::Vec2, vec3::Vec3},
-};
+use crate::{Mat4, Vec2, Vec3};
 use std::{fs, io, num::ParseIntError, vec};
 
 pub use self::texture::Texture;

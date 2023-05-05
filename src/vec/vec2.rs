@@ -1,4 +1,4 @@
-use std::ops::{Add, Sub};
+use std::ops::{Add, Div, Mul, Sub};
 
 use crate::vec::vec3::Vec3;
 
@@ -12,12 +12,7 @@ impl Vec2 {
     pub fn new(x: f64, y: f64) -> Vec2 {
         Vec2 { x, y }
     }
-    pub fn scale(self, n: f64) -> Vec2 {
-        Vec2 {
-            x: self.x * n,
-            y: self.y * n,
-        }
-    }
+
     pub fn dot(self, vec: Vec2) -> f64 {
         self.x * vec.x + self.y * vec.y
     }
@@ -41,6 +36,27 @@ impl Sub for Vec2 {
         Self {
             x: self.x - other.x,
             y: self.y - other.y,
+        }
+    }
+}
+impl Mul<f64> for Vec2 {
+    type Output = Self;
+
+    fn mul(self, rhs: f64) -> Self::Output {
+        Self {
+            x: self.x * rhs,
+            y: self.y * rhs,
+        }
+    }
+}
+
+impl Div<f64> for Vec2 {
+    type Output = Self;
+
+    fn div(self, rhs: f64) -> Self::Output {
+        Self {
+            x: self.x / rhs,
+            y: self.y / rhs,
         }
     }
 }

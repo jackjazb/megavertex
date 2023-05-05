@@ -83,7 +83,7 @@ impl Renderer {
             if vec.z >= 0.0 {
                 return;
             }
-            let scaled = vec.scale(self.width as f64);
+            let scaled = vec * self.width as f64;
             let centred = scaled + self.centre;
 
             raster_points.push(Vec3::new(centred.x, centred.y, vec.z));
@@ -123,18 +123,18 @@ impl Renderer {
                 let bary = get_barycentric(a, b, c, point);
 
                 if bary.u >= 0.0 && bary.v >= 0.0 && bary.w >= 0.0 {
-                    let point_exact = raster_points[0].scale(bary.u)
-                        + raster_points[1].scale(bary.v)
-                        + raster_points[2].scale(bary.w);
+                    let point_exact = raster_points[0] * bary.u
+                        + raster_points[1] * bary.v
+                        + raster_points[2] * bary.w;
 
                     if point_exact.z < self.depth_buffer[y as usize][x as usize] {
                         continue;
                     }
 
                     let tex_xy = tex_coords[0]
-                        + tex_coords[0].scale(bary.u)
-                        + tex_coords[1].scale(bary.v)
-                        + tex_coords[2].scale(bary.w);
+                        + tex_coords[0] * bary.u
+                        + tex_coords[1] * bary.v
+                        + tex_coords[2] * bary.w;
 
                     let col = texture.sample(tex_xy);
                     self.draw_pixel(Vec3::new(x as f64, y as f64, point_exact.z), col as u32);
